@@ -5,7 +5,7 @@ This module implements the nodes for the career application orchestration system
 Each node represents a discrete unit of work in the job application process.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from abc import ABC, abstractmethod
 
 
@@ -190,6 +190,26 @@ Remember: Respond with ONLY the YAML structure, no additional text."""
             raise ValueError("Hard requirements must include at least one of: education, experience, technical_skills")
         
         logger.info(f"Successfully validated requirements for: {requirements['role_summary']['title']}")
+    
+    def _validate_with_schema(self, requirements: Dict[str, Any]) -> List[str]:
+        """Validate requirements against JSON schema."""
+        import json
+        import jsonschema
+        from pathlib import Path
+        
+        schema_path = Path(__file__).parent / "utils" / "job_requirements_schema.json"
+        
+        try:
+            with open(schema_path, 'r') as f:
+                schema = json.load(f)
+            
+            jsonschema.validate(instance=requirements, schema=schema)
+            return []
+            
+        except jsonschema.exceptions.ValidationError as e:
+            return [f"Schema validation error: {e.message}"]
+        except Exception as e:
+            return [f"Failed to validate with schema: {str(e)}"]
 
 
 class RequirementMappingNode(Node):

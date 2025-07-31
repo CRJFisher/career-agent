@@ -1,0 +1,287 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Job Requirements Schema",
+  "description": "Schema for structured job requirements extracted from job descriptions",
+  "type": "object",
+  "required": ["role_summary", "hard_requirements", "responsibilities"],
+  "properties": {
+    "role_summary": {
+      "type": "object",
+      "required": ["title", "company", "location", "type", "level"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Job title"
+        },
+        "company": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Company name"
+        },
+        "location": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Job location"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["Full-time", "Part-time", "Contract", "Internship", "Freelance"],
+          "description": "Employment type"
+        },
+        "level": {
+          "type": "string",
+          "enum": ["Entry", "Mid", "Senior", "Lead", "Principal", "Staff", "Distinguished"],
+          "description": "Seniority level"
+        },
+        "department": {
+          "type": "string",
+          "description": "Department or team"
+        },
+        "reports_to": {
+          "type": "string",
+          "description": "Reporting structure"
+        }
+      }
+    },
+    "hard_requirements": {
+      "type": "object",
+      "properties": {
+        "education": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Educational requirements"
+        },
+        "experience": {
+          "type": "object",
+          "properties": {
+            "years_required": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Minimum years of experience"
+            },
+            "specific_experience": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "Specific experience requirements"
+            }
+          }
+        },
+        "technical_skills": {
+          "type": "object",
+          "properties": {
+            "programming_languages": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "Required programming languages"
+            },
+            "technologies": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "Required technologies/tools"
+            },
+            "concepts": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "Required technical concepts"
+            }
+          }
+        },
+        "certifications": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Required certifications"
+        },
+        "clearances": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Security clearances required"
+        }
+      },
+      "anyOf": [
+        {"required": ["education"]},
+        {"required": ["experience"]},
+        {"required": ["technical_skills"]}
+      ]
+    },
+    "soft_requirements": {
+      "type": "object",
+      "properties": {
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Soft skills"
+        },
+        "traits": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Personal characteristics"
+        },
+        "cultural_fit": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Company culture alignment"
+        }
+      }
+    },
+    "nice_to_have": {
+      "type": "object",
+      "properties": {
+        "certifications": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Preferred certifications"
+        },
+        "experience": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Preferred experience"
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Preferred additional skills"
+        },
+        "education": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Preferred education"
+        },
+        "technologies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Preferred technology experience"
+        },
+        "domain_knowledge": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Preferred domain expertise"
+        }
+      }
+    },
+    "responsibilities": {
+      "type": "object",
+      "required": ["primary"],
+      "properties": {
+        "primary": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Core responsibilities"
+        },
+        "secondary": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Additional responsibilities"
+        },
+        "leadership": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Leadership duties"
+        },
+        "collaboration": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Cross-functional responsibilities"
+        }
+      }
+    },
+    "compensation_benefits": {
+      "type": "object",
+      "properties": {
+        "salary_range": {
+          "type": "string",
+          "description": "Salary range"
+        },
+        "benefits": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Standard benefits"
+        },
+        "perks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Additional perks"
+        },
+        "equity": {
+          "type": ["string", "array"],
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Stock/equity information"
+        },
+        "bonus_structure": {
+          "type": "string",
+          "description": "Bonus information"
+        }
+      }
+    }
+  }
+}
