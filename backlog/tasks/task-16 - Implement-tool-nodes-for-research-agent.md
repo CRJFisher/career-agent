@@ -22,6 +22,11 @@ Create WebSearchNode, ReadContentNode, and SynthesizeInfoNode that execute the t
 - [ ] Search results saved to shared['search_results']
 - [ ] Scraped content saved to shared['current_content']
 - [ ] Synthesized info updates shared['company_research']
+- [ ] Unit tests written for all three node classes
+- [ ] Tests verify proper utility function calls with correct parameters
+- [ ] Tests validate shared store updates with expected data structures
+- [ ] Error handling tests for utility failures
+- [ ] Mock-based tests to isolate node behavior from external dependencies
 
 ## Implementation Plan
 

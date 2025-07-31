@@ -22,6 +22,12 @@ Create a workflow that chains RequirementMappingNode, StrengthAssessmentNode, an
 - [ ] Complete analysis results in requirement_mapping_final and gaps
 - [ ] Error handling for node failures
 - [ ] Flow maintains data integrity throughout pipeline
+- [ ] Unit tests created for all public methods
+- [ ] Test coverage of at least 80%
+- [ ] Integration tests with multiple nodes working together
+- [ ] Mock-based testing for external dependencies (node dependencies)
+- [ ] Error cases tested (node failures, data corruption, invalid states)
+- [ ] End-to-end flow testing with realistic data
 
 ## Implementation Plan
 

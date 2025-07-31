@@ -22,6 +22,11 @@ Create the cognitive core node for the company research agent that decides which
 - [ ] Reasoning process required before action selection
 - [ ] Output format as YAML with thinking and action fields
 - [ ] Node updates research state based on previous actions
+- [ ] Unit tests created for all public methods
+- [ ] Test coverage of at least 80%
+- [ ] Mock-based testing for external dependencies (LLM calls, shared store)
+- [ ] Error cases tested (LLM failures, invalid YAML responses, unknown actions)
+- [ ] Edge cases tested (empty research state, malformed context, action loops)
 
 ## Implementation Plan
 

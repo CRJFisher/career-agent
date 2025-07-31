@@ -22,6 +22,13 @@ Create a pure Python node that scores and ranks all career experiences using wei
 - [ ] Calculates composite score for each experience
 - [ ] Returns sorted list by score (highest first)
 - [ ] Scoring methodology documented in code
+- [ ] Unit tests for each scoring criterion function
+- [ ] Tests verify weighted calculation accuracy (40/20/20/10/10)
+- [ ] Tests validate proper handling of all career_db entries
+- [ ] Tests ensure correct sorting by composite score
+- [ ] Edge case tests for missing dates or incomplete experience data
+- [ ] Tests verify scoring consistency and deterministic results
+- [ ] Performance tests for large career databases
 
 ## Implementation Plan
 

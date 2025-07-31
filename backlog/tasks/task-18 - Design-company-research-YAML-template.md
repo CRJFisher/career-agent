@@ -22,6 +22,11 @@ Define the structured format for company research output including mission, team
 - [ ] Team_scope describes specific team/role context
 - [ ] Strategic_importance analyzes role's impact on company
 - [ ] Culture summarizes work environment and values
+- [ ] YAML schema validation rules defined and tested
+- [ ] Tests verify template structure matches expected format
+- [ ] Validation tests for required field presence
+- [ ] Tests ensure field content types are correctly specified
+- [ ] Example template passes all validation requirements
 
 ## Implementation Plan
 

@@ -22,6 +22,11 @@ Create a node that evaluates the strength of requirement-to-evidence mappings us
 - [ ] Prompt template includes requirement evidence and scoring criteria
 - [ ] Assessed mapping saved to shared['requirement_mapping_assessed']
 - [ ] Maintains original evidence with added strength scores
+- [ ] Unit tests created for all public methods
+- [ ] Test coverage of at least 80%
+- [ ] Mock-based testing for external dependencies (LLM calls, shared store)
+- [ ] Error cases tested (LLM failures, empty mappings, malformed responses)
+- [ ] Edge cases tested (invalid scores, missing evidence data)
 
 ## Implementation Plan
 

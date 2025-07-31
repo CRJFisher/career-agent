@@ -22,6 +22,13 @@ Create an LLM-driven node that synthesizes a complete narrative strategy includi
 - [ ] Defines 3 concise key messages for application
 - [ ] Creates 1-2 detailed CAR format evidence stories
 - [ ] Complete narrative_strategy dict saved to shared store
+- [ ] Unit tests for node initialization and lifecycle methods
+- [ ] Tests verify experience selection logic (top 2-3 must-tells)
+- [ ] Tests validate differentiator identification accuracy
+- [ ] Tests ensure career arc narrative coherence
+- [ ] Tests verify key message generation quality and count
+- [ ] Tests validate CAR story format and completeness
+- [ ] Mock LLM tests for prompt handling and response parsing
 
 ## Implementation Plan
 

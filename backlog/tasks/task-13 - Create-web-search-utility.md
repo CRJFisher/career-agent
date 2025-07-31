@@ -22,6 +22,11 @@ Implement utils/web_search.py module that provides web search functionality for 
 - [ ] Retry logic with exponential backoff implemented
 - [ ] Results filtered for relevance and quality
 - [ ] Environment variables for API keys supported
+- [ ] Unit tests created for all public methods
+- [ ] Test coverage of at least 80%
+- [ ] Mock-based testing for external dependencies (search APIs, network calls)
+- [ ] Error cases tested (API failures, rate limits, network timeouts, invalid queries)
+- [ ] Edge cases tested (empty results, malformed API responses, missing API keys)
 
 ## Implementation Plan
 

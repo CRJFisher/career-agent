@@ -22,6 +22,13 @@ Create a node that performs holistic evaluation of job fit including technical f
 - [ ] Summarizes most significant gaps honestly
 - [ ] Synthesizes unique value proposition from skill intersections
 - [ ] Complete suitability_assessment dict saved to shared store
+- [ ] Unit tests for scoring algorithm accuracy and consistency
+- [ ] Tests verify technical fit scoring logic (0-100 range)
+- [ ] Tests validate cultural fit assessment generation
+- [ ] Tests ensure strengths and gaps identification logic
+- [ ] Mock LLM tests for prompt handling and response parsing
+- [ ] Tests verify complete assessment data structure
+- [ ] Edge case tests for missing or incomplete input data
 
 ## Implementation Plan
 

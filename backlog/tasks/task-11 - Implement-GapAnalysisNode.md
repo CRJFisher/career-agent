@@ -12,6 +12,7 @@ dependencies: []
 ## Description
 
 Create a node that identifies gaps in must-have requirements and generates mitigation strategies for each gap. This node compares must-have requirements against assessed mappings, flagging any with LOW strength or no evidence as gaps. For each gap, it uses LLM to brainstorm strategic ways to address the weakness in cover letter or interview. This is critical for honest self-assessment and strategic positioning.
+
 ## Acceptance Criteria
 
 - [ ] GapAnalysisNode class created following Node lifecycle
@@ -22,6 +23,11 @@ Create a node that identifies gaps in must-have requirements and generates mitig
 - [ ] Mitigation focuses on transferable skills and learning ability
 - [ ] Final mapping saved to shared['requirement_mapping_final']
 - [ ] Gaps and strategies saved to shared['gaps']
+- [ ] Unit tests created for all public methods
+- [ ] Test coverage of at least 80%
+- [ ] Mock-based testing for external dependencies (LLM calls, shared store)
+- [ ] Error cases tested (LLM failures, no gaps found, malformed data)
+- [ ] Edge cases tested (all requirements are gaps, no must-have requirements)
 
 ## Implementation Plan
 

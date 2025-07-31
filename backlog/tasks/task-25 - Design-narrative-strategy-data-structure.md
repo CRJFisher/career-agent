@@ -22,6 +22,12 @@ Define the structure for the narrative strategy output including career arc, key
 - [ ] Evidence stories in detailed CAR format
 - [ ] Integration points with CV and cover letter generation
 - [ ] Example narrative strategy with populated data
+- [ ] Data structure validation schema defined and tested
+- [ ] Tests verify all required components are present
+- [ ] Tests validate proper nesting and field types
+- [ ] Tests ensure integration compatibility with generation flows
+- [ ] Validation tests for CAR story format requirements
+- [ ] Tests verify example data passes all validation rules
 
 ## Implementation Plan
 

@@ -22,6 +22,11 @@ Create the LLM prompt for the SuitabilityScoringNode that acts as a senior hirin
 - [ ] Gap significance evaluation guidelines
 - [ ] Unique value proposition synthesis instructions
 - [ ] Example of skill intersection identification included
+- [ ] Prompt validation tests with sample inputs and expected outputs
+- [ ] Tests verify prompt generates consistent scoring across multiple runs
+- [ ] Tests ensure all required assessment components are addressed
+- [ ] Tests validate example output format matches expected structure
+- [ ] Edge case tests for incomplete or unclear requirement data
 
 ## Implementation Plan
 

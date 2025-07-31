@@ -22,6 +22,12 @@ Create a workflow that chains ExperiencePrioritizationNode and NarrativeStrategy
 - [ ] Complete narrative strategy saved to shared['narrative_strategy']
 - [ ] Both algorithmic and creative aspects balanced
 - [ ] Error handling for both nodes implemented
+- [ ] Unit tests for flow initialization and node connection
+- [ ] Integration tests for complete narrative flow execution
+- [ ] Tests verify proper data flow between prioritization and strategy nodes
+- [ ] Tests validate final narrative strategy structure and content
+- [ ] Tests ensure both algorithmic and creative components work together
+- [ ] Error handling tests for node failures and recovery
 
 ## Implementation Plan
 

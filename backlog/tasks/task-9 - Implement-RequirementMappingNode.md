@@ -22,6 +22,11 @@ Create a node that maps job requirements to personal experiences using RAG patte
 - [ ] Semantic search capability planned for enhancement
 - [ ] Raw mapping saved to shared['requirement_mapping_raw']
 - [ ] Each requirement mapped to list of potential evidence
+- [ ] Unit tests created for all public methods
+- [ ] Test coverage of at least 80%
+- [ ] Mock-based testing for external dependencies (career_db, shared store)
+- [ ] Error cases tested (empty requirements, missing career_db, search failures)
+- [ ] Edge cases tested (no matches found, malformed data)
 
 ## Implementation Plan
 

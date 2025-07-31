@@ -9,6 +9,7 @@ This document summarizes the implementation progress, key decisions, and learnin
 **Completed Tasks: 8 of 35 (23%)**
 
 ### Completed Components
+
 1. ✅ PocketFlow framework structure
 2. ✅ Dependencies and environment setup
 3. ✅ Career database parser
@@ -21,21 +22,25 @@ This document summarizes the implementation progress, key decisions, and learnin
 ## Key Architectural Decisions
 
 ### 1. PocketFlow Framework Choice
+
 - **Decision**: Use The-Pocket/PocketFlow (minimalist 100-line LLM orchestration framework)
 - **Rationale**: Avoids bloat, focuses on core patterns (Nodes, Flows, Shared Store)
 - **Implementation**: Embedded framework directly in project rather than as dependency
 
 ### 2. LLM Provider Abstraction
+
 - **Decision**: Support multiple LLM providers (OpenAI, Anthropic) with unified interface
 - **Rationale**: Flexibility and vendor independence
 - **Implementation**: Created `LLMWrapper` with provider abstraction and retry logic
 
 ### 3. YAML-Based Data Formats
+
 - **Decision**: Use YAML for all structured data (career database, job requirements)
 - **Rationale**: Human-readable, easy to edit, good for complex nested structures
 - **Implementation**: PyYAML with JSON Schema validation for reliability
 
 ### 4. Schema-First Design
+
 - **Decision**: Define comprehensive schemas before implementation
 - **Rationale**: Ensures consistency, enables validation, clarifies data contracts
 - **Implementation**: Both documentation and JSON Schema files for programmatic validation
@@ -45,6 +50,7 @@ This document summarizes the implementation progress, key decisions, and learnin
 ### Core Infrastructure
 
 #### PocketFlow Structure
+
 ```
 nodes.py    # Node implementations (units of work)
 flow.py     # Flow orchestration (directed graphs)
@@ -53,11 +59,13 @@ utils/      # External integrations
 ```
 
 #### Node Lifecycle
+
 - Nodes inherit from abstract `Node` base class
 - Implement async `execute(store)` method
 - Access and update shared store for data flow
 
 #### Flow Execution
+
 - Flows manage node execution order
 - Handle dependencies and parallel execution
 - Provide error handling and status tracking
@@ -65,6 +73,7 @@ utils/      # External integrations
 ### Career Database System
 
 #### Schema Design
+
 ```yaml
 personal_info:    # Contact and basic info
 experience:       # Work history with achievements
@@ -77,6 +86,7 @@ awards:          # Recognition and honors
 ```
 
 #### Parser Features
+
 - Load from single file or directory
 - Merge multiple YAML files intelligently
 - Comprehensive error handling
@@ -86,6 +96,7 @@ awards:          # Recognition and honors
 ### Requirements Extraction System
 
 #### Job Requirements Schema
+
 ```yaml
 role_summary:          # Title, company, location, type, level
 hard_requirements:     # Must-have qualifications
@@ -99,6 +110,7 @@ compensation_benefits: # Salary, benefits, perks
 ```
 
 #### LLM Integration
+
 - **Prompt Engineering**: Expert HR analyst role with one-shot example
 - **Temperature**: 0.3 for consistent structured output
 - **Retry Logic**: Automatic retries with exponential backoff
@@ -106,6 +118,7 @@ compensation_benefits: # Salary, benefits, perks
 - **Validation**: Multi-level validation ensures quality
 
 ### Testing Strategy
+
 - Comprehensive unit tests for all components
 - Mock-based testing for LLM interactions
 - Test coverage includes success paths and error cases
@@ -114,23 +127,27 @@ compensation_benefits: # Salary, benefits, perks
 ## Key Learnings
 
 ### 1. Structured Output from LLMs
+
 - Clear instructions and examples dramatically improve output quality
 - Lower temperature (0.3) essential for consistent formatting
 - Multiple validation layers catch edge cases
 - Retry logic handles transient failures
 
 ### 2. Schema Evolution
+
 - Started with simple schema, evolved based on real job descriptions
 - Separation of hard requirements vs nice-to-haves is crucial
 - Nested structures better represent complex requirements
 - JSON Schema validation catches many issues early
 
 ### 3. Async Architecture
+
 - Async/await pattern works well for LLM calls
 - Enables future parallelization of node execution
 - Better resource utilization for I/O-bound operations
 
 ### 4. Error Handling Philosophy
+
 - Graceful degradation over hard failures
 - Detailed error messages for debugging
 - Status tracking at multiple levels
@@ -139,6 +156,7 @@ compensation_benefits: # Salary, benefits, perks
 ## Current Capabilities
 
 The system can now:
+
 1. **Load Career Data**: Parse YAML files with comprehensive career information
 2. **Extract Requirements**: Convert unstructured job descriptions to structured data
 3. **Validate Data**: Ensure all data conforms to defined schemas
@@ -147,6 +165,7 @@ The system can now:
 ## Next Phase Preview
 
 The next implementation phase will focus on:
+
 1. **RequirementMappingNode**: Match candidate experience to job requirements
 2. **StrengthAssessmentNode**: Evaluate candidate strengths
 3. **GapAnalysisNode**: Identify missing qualifications
@@ -162,6 +181,7 @@ The next implementation phase will focus on:
 ## Dependencies
 
 ### Core Dependencies
+
 - `PyYAML`: YAML parsing
 - `jsonschema`: Schema validation
 - `openai/anthropic`: LLM providers
@@ -169,6 +189,7 @@ The next implementation phase will focus on:
 - `aiohttp/aiofiles`: Async I/O
 
 ### Development Dependencies
+
 - `pytest`: Testing framework
 - `black/ruff`: Code formatting
 - `mypy`: Type checking

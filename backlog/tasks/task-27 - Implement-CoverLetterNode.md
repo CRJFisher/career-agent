@@ -22,6 +22,13 @@ Create a node that generates a compelling cover letter following the user-specif
 - [ ] Company fit demonstrates deep research understanding
 - [ ] Call to action is confident and specific
 - [ ] Authentic personalized tone throughout letter
+- [ ] Unit tests for cover letter node lifecycle methods
+- [ ] Tests verify 5-part structure implementation
+- [ ] Tests validate proper use of company research data
+- [ ] Tests ensure unique value proposition integration
+- [ ] Tests verify CAR story incorporation in evidence section
+- [ ] Tests validate company fit demonstration accuracy
+- [ ] Output validation tests for cover letter completeness and tone
 
 ## Implementation Plan
 

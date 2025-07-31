@@ -22,6 +22,12 @@ Create a workflow containing the SuitabilityScoringNode that generates the compl
 - [ ] Suitability assessment saved to shared['suitability_assessment']
 - [ ] Error handling for scoring failures implemented
 - [ ] Assessment data structure properly validated
+- [ ] Unit tests for flow initialization and node setup
+- [ ] Integration tests for complete assessment flow execution
+- [ ] Tests verify proper input data processing from previous flows
+- [ ] Tests validate assessment output structure and content
+- [ ] Error handling tests for missing or invalid inputs
+- [ ] Tests ensure proper shared store state management
 
 ## Implementation Plan
 

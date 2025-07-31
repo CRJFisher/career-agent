@@ -22,6 +22,14 @@ Create the main.py file that orchestrates all flows in sequence, manages the sha
 - [ ] Sequential execution of flows implemented
 - [ ] Each flow's output feeds next flow via shared store
 - [ ] Final CV and cover letter extracted and saved to files
+- [ ] Unit tests for orchestrator initialization and setup
+- [ ] Integration tests for complete end-to-end pipeline execution
+- [ ] Tests verify proper shared store management across flows
+- [ ] Tests validate sequential flow execution and data passing
+- [ ] Tests ensure career database and job spec loading works correctly
+- [ ] Error handling tests for flow failures and recovery
+- [ ] Tests verify final file output generation and formatting
+- [ ] Performance tests for complete pipeline execution time
 
 ## Implementation Plan
 

@@ -22,6 +22,13 @@ Create a node that generates a tailored CV in GitHub-flavored Markdown format ba
 - [ ] Minimizes or summarizes lower-priority experiences
 - [ ] Mirrors job specification language throughout
 - [ ] GitHub-flavored Markdown with proper formatting
+- [ ] Unit tests for CV generation node lifecycle methods
+- [ ] Tests verify proper integration of narrative strategy data
+- [ ] Tests validate career database information extraction
+- [ ] Tests ensure must-tell experiences are prominently featured
+- [ ] Tests verify proper Markdown formatting and structure
+- [ ] Tests validate job specification language mirroring
+- [ ] Output validation tests for generated CV completeness
 
 ## Implementation Plan
 

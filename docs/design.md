@@ -7,6 +7,7 @@ This system automates the customization of job applications using The-Pocket/Poc
 ## Core Concepts
 
 ### 1. Nodes (Discrete Units of Work)
+
 - **ExtractRequirementsNode**: Parses job descriptions into structured requirements
 - **RequirementMappingNode**: Maps candidate experience to job requirements  
 - **StrengthAssessmentNode**: Evaluates candidate strengths
@@ -20,6 +21,7 @@ This system automates the customization of job applications using The-Pocket/Poc
 - **CoverLetterNode**: Generates cover letter
 
 ### 2. Flows (Directed Graphs)
+
 - **RequirementExtractionFlow**: Job parsing pipeline
 - **AnalysisFlow**: Candidate evaluation pipeline  
 - **CompanyResearchFlow**: Information gathering pipeline
@@ -28,7 +30,9 @@ This system automates the customization of job applications using The-Pocket/Poc
 - **GenerationFlow**: Document creation pipeline
 
 ### 3. Shared Store (Data Repository)
+
 Central data store containing:
+
 - Career database (candidate information)
 - Job requirements
 - Analysis results

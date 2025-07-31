@@ -22,6 +22,12 @@ Create the looping agent flow that orchestrates company research using DecideAct
 - [ ] Agent continues until all template fields filled
 - [ ] Finish action breaks loop and completes flow
 - [ ] Maximum iteration limit to prevent infinite loops
+- [ ] Unit tests for flow initialization and graph construction
+- [ ] Integration tests for complete research agent execution
+- [ ] Tests verify correct action routing to appropriate nodes
+- [ ] Tests validate iterative template population
+- [ ] Tests ensure proper loop termination conditions
+- [ ] Tests verify maximum iteration safety limits
 
 ## Implementation Plan
 

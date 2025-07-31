@@ -22,6 +22,13 @@ Create a workflow containing CVGenerationNode and CoverLetterNode to produce fin
 - [ ] Cover letter as text in shared['cover_letter_text']
 - [ ] Error handling for generation failures
 - [ ] Validates both outputs before completion
+- [ ] Unit tests for flow initialization and node setup
+- [ ] Integration tests for complete generation flow execution
+- [ ] Tests verify parallel execution of generation nodes (if implemented)
+- [ ] Tests validate proper access to all required input data
+- [ ] Tests ensure both CV and cover letter are generated successfully
+- [ ] Error handling tests for individual node failures
+- [ ] Output validation tests for final material quality
 
 ## Implementation Plan
 

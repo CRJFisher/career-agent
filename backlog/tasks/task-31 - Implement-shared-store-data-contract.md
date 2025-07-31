@@ -22,6 +22,12 @@ Define and document the complete data contract for the shared store including al
 - [ ] Consumer flows mapped showing dependencies
 - [ ] Contract enforced through validation logic
 - [ ] Documentation integrated into codebase
+- [ ] Validation tests for data contract compliance
+- [ ] Tests verify all documented keys are properly defined
+- [ ] Tests validate data type consistency across flows
+- [ ] Tests ensure producer-consumer relationships work correctly
+- [ ] Contract validation helper function tests
+- [ ] Tests verify shared store initialization includes all required keys
 
 ## Implementation Plan
 

@@ -22,6 +22,11 @@ Implement utils/web_scraper.py module that extracts clean readable text from URL
 - [ ] Support for common content types (HTML/PDF)
 - [ ] User-agent headers to avoid blocking
 - [ ] Text cleaning and normalization applied
+- [ ] Unit tests created for all public methods
+- [ ] Test coverage of at least 80%
+- [ ] Mock-based testing for external dependencies (HTTP requests, file systems)
+- [ ] Error cases tested (unreachable URLs, timeouts, malformed HTML, blocked requests)
+- [ ] Edge cases tested (empty pages, unsupported content types, large files)
 
 ## Implementation Plan
 

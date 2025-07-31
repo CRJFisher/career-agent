@@ -22,6 +22,13 @@ Create functionality to export generated CV and cover letter from shared store t
 - [ ] Success messages displayed to user
 - [ ] Error handling for write failures
 - [ ] Optional PDF conversion mentioned in docs
+- [ ] Unit tests for file export functionality
+- [ ] Tests verify proper file creation with correct extensions
+- [ ] Tests validate filename generation with timestamps
+- [ ] Tests ensure output directory creation works correctly
+- [ ] Tests verify content integrity in exported files
+- [ ] Error handling tests for write permission issues
+- [ ] Tests validate success message generation
 
 ## Implementation Plan
 
