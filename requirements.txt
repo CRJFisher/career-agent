@@ -7,6 +7,9 @@
 # YAML parsing for career database
 PyYAML>=6.0.1
 
+# JSON schema validation
+jsonschema>=4.20.0
+
 # LLM SDKs - using OpenAI as primary with Anthropic as alternative
 openai>=1.0.0
 anthropic>=0.18.0

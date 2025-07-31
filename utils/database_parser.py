@@ -6,9 +6,11 @@ Supports both single files and directories of YAML files.
 """
 
 import yaml
+import json
 from pathlib import Path
 from typing import Dict, Any, Union, List, Optional
 import logging
+import jsonschema
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +164,55 @@ def validate_career_database(data: Dict[str, Any]) -> List[str]:
                     warnings.append(f"Experience entry {i} missing 'title' or 'company'")
     
     return warnings
+
+
+def validate_with_schema(data: Dict[str, Any]) -> List[str]:
+    """
+    Validate career database against JSON schema.
+    
+    Args:
+        data: Parsed career database dictionary
+        
+    Returns:
+        List of validation errors (empty if valid)
+    """
+    schema_path = Path(__file__).parent / "career_database_schema.json"
+    
+    try:
+        with open(schema_path, 'r') as f:
+            schema = json.load(f)
+        
+        # Validate against schema
+        jsonschema.validate(instance=data, schema=schema)
+        return []
+        
+    except jsonschema.exceptions.ValidationError as e:
+        # Format validation errors
+        errors = []
+        if e.path:
+            path = " -> ".join(str(p) for p in e.path)
+            errors.append(f"Validation error at {path}: {e.message}")
+        else:
+            errors.append(f"Validation error: {e.message}")
+        
+        # Check for additional errors
+        validator = jsonschema.Draft7Validator(schema)
+        for error in validator.iter_errors(data):
+            if error != e:  # Avoid duplicate
+                if error.path:
+                    path = " -> ".join(str(p) for p in error.path)
+                    errors.append(f"Validation error at {path}: {error.message}")
+                else:
+                    errors.append(f"Validation error: {error.message}")
+        
+        return errors
+        
+    except FileNotFoundError:
+        return ["Schema file not found: career_database_schema.json"]
+    except json.JSONDecodeError:
+        return ["Invalid JSON schema file"]
+    except Exception as e:
+        return [f"Schema validation error: {str(e)}"]
 
 
 def merge_career_databases(*databases: Dict[str, Any]) -> Dict[str, Any]:
