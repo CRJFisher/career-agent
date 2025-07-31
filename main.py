@@ -2,12 +2,16 @@
 Main orchestrator for the PocketFlow career application agent.
 
 This is the entry point that coordinates all flows to process job applications.
+
+Note: PocketFlow is implemented directly in this project following the minimalist
+philosophy of The-Pocket/PocketFlow - a 100-line LLM orchestration framework.
+Core components are in nodes.py (Nodes), flow.py (Flows), and shared store pattern.
 """
 
 import asyncio
 import argparse
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from flow import Flow
 from nodes import Node
 

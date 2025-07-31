@@ -1,0 +1,35 @@
+# Core dependencies for Career Application Agent
+
+# Note: The-Pocket/PocketFlow is embedded in this project
+# The framework is minimal (100 lines) and we've implemented it directly
+# in nodes.py, flow.py following the framework's patterns
+
+# YAML parsing for career database
+PyYAML>=6.0.1
+
+# LLM SDKs - using OpenAI as primary with Anthropic as alternative
+openai>=1.0.0
+anthropic>=0.18.0
+
+# Web utilities
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# Async support
+aiohttp>=3.9.0
+aiofiles>=23.2.1
+
+# Data processing
+pydantic>=2.5.0
+python-dateutil>=2.8.2
+
+# Development dependencies
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+black>=23.12.0
+mypy>=1.8.0
+ruff>=0.1.0
+
+# Optional: For better async performance
+uvloop>=0.19.0 ; platform_system != "Windows"

@@ -36,8 +36,28 @@ career-agent/
 git clone <repository-url>
 cd career-agent
 
-# Install dependencies (to be implemented)
-pip install -r requirements.txt
+# Create and activate virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -e .  # Install in editable mode with pyproject.toml
+# OR
+pip install -r requirements.txt  # Install from requirements.txt
+
+# For development (includes testing and linting tools)
+pip install -e ".[dev]"
+
+# For better async performance (Linux/macOS)
+pip install -e ".[performance]"
+```
+
+### Configuration
+
+Set up your LLM API keys:
+```bash
+export OPENAI_API_KEY="your-openai-api-key"
+export ANTHROPIC_API_KEY="your-anthropic-api-key"
 ```
 
 ## Usage
