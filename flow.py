@@ -8,7 +8,10 @@ It manages the execution order and data flow between nodes.
 from typing import Dict, List, Any, Optional, Set
 from dataclasses import dataclass, field
 import asyncio
+import logging
 from nodes import Node
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -98,10 +101,67 @@ class Flow:
         return self.store
 
 
-# Placeholder flows - will be implemented in subsequent tasks
 class RequirementExtractionFlow(Flow):
     """Flow for extracting and analyzing job requirements."""
-    pass
+    
+    def __init__(self):
+        super().__init__(name="RequirementExtraction")
+        self._setup_flow()
+    
+    def _setup_flow(self):
+        """Set up the flow graph with nodes and edges."""
+        from nodes import ExtractRequirementsNode
+        
+        # Create the extraction node
+        extract_node = ExtractRequirementsNode()
+        
+        # Add node to flow
+        self.add_node(extract_node)
+        
+        # Define flow structure
+        # Since this is a single-node flow, we don't need edges
+        # The node will execute when the flow runs
+        
+    async def run(self, job_description: str) -> Dict[str, Any]:
+        """
+        Run the requirements extraction flow.
+        
+        Args:
+            job_description: The job description text to analyze
+            
+        Returns:
+            Dictionary containing extracted requirements and status
+        """
+        # Initialize store with job description
+        self.store['job_description'] = job_description
+        
+        # Execute the flow
+        try:
+            result = await self.execute(start_node="ExtractRequirements")
+            
+            # Check extraction status
+            if result.get('extraction_status') == 'success':
+                logger.info("Requirements extraction completed successfully")
+                return {
+                    'status': 'success',
+                    'requirements': result.get('job_requirements_structured'),
+                    'store': result
+                }
+            else:
+                logger.error(f"Requirements extraction failed: {result.get('extraction_error')}")
+                return {
+                    'status': 'failed',
+                    'error': result.get('extraction_error'),
+                    'store': result
+                }
+                
+        except Exception as e:
+            logger.error(f"Flow execution error: {e}")
+            return {
+                'status': 'error',
+                'error': str(e),
+                'store': self.store
+            }
 
 
 class AnalysisFlow(Flow):
