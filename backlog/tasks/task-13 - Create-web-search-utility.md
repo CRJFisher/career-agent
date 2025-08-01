@@ -45,6 +45,7 @@ Implement utils/web_search.py module that provides web search functionality thro
 9. Create comprehensive test suite
 
 ## Dependencies
+
 - Playwright or Puppeteer for browser automation
 - BeautifulSoup for HTML parsing
 - LLM wrapper for relevance scoring
