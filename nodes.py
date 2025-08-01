@@ -13,6 +13,7 @@ All nodes extend PocketFlow's base Node class and implement:
 
 from typing import Dict, Any, Optional, List, Tuple
 import logging
+import yaml
 from pocketflow import Node, BatchNode
 from utils.llm_wrapper import get_default_llm_wrapper
 
@@ -792,3 +793,420 @@ class LoadCheckpointNode(Node):
                 logger.info(f"Applied user edit to field: {key}")
         
         return "default"
+
+
+class DecideActionNode(Node):
+    """
+    Cognitive core for the company research agent.
+    
+    This node implements the Agent pattern's decision-making capability.
+    It assesses research progress, determines what information is still needed,
+    and selects appropriate tools to continue the research process.
+    """
+    
+    def __init__(self):
+        super().__init__(max_retries=2, wait=1)
+        self.llm = get_default_llm_wrapper()
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract research context from shared store."""
+        company_name = shared.get("company_name", "")
+        if not company_name:
+            raise ValueError("No company name provided for research")
+        
+        # Initialize research state if not present
+        if "research_state" not in shared:
+            shared["research_state"] = {
+                "searches_performed": [],
+                "pages_read": [],
+                "information_gathered": {},
+                "synthesis_complete": False
+            }
+        
+        # Get or set default research goals
+        if "research_goals" not in shared or not shared["research_goals"]:
+            shared["research_goals"] = self._default_research_goals()
+        
+        return {
+            "company_name": company_name,
+            "job_title": shared.get("job_title", ""),
+            "research_goals": shared.get("research_goals", []),
+            "research_state": shared["research_state"]
+        }
+    
+    def exec(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Use LLM to decide next research action."""
+        prompt = self._build_agent_prompt(context)
+        
+        try:
+            response = self.llm.call_llm_sync(prompt)
+            decision = yaml.safe_load(response)
+            
+            # Validate response structure
+            if not isinstance(decision, dict) or "action" not in decision:
+                raise ValueError("Decision missing required fields")
+            
+            action = decision["action"]
+            if not isinstance(action, dict) or "type" not in action:
+                raise ValueError("Action missing type field")
+            
+            return {
+                "decision": decision,
+                "action_type": action["type"],
+                "action_params": action.get("parameters", {})
+            }
+            
+        except yaml.YAMLError as e:
+            logger.error(f"Failed to parse YAML response: {e}")
+            # Fallback to basic web search
+            return {
+                "decision": {
+                    "thinking": "Failed to parse response, falling back to web search",
+                    "action": {"type": "web_search", "parameters": {"query": context["company_name"]}}
+                },
+                "action_type": "web_search",
+                "action_params": {"query": context["company_name"]}
+            }
+    
+    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: Dict) -> str:
+        """Store decision and update research state."""
+        shared["last_decision"] = exec_res["decision"]
+        shared["next_action"] = exec_res["action_type"]
+        shared["action_params"] = exec_res["action_params"]
+        
+        # Update research state based on action
+        action_type = exec_res["action_type"]
+        if action_type == "web_search":
+            query = exec_res["action_params"].get("query", "")
+            if query and query not in shared["research_state"]["searches_performed"]:
+                shared["research_state"]["searches_performed"].append(query)
+        elif action_type == "read_content":
+            url = exec_res["action_params"].get("url", "")
+            if url and url not in shared["research_state"]["pages_read"]:
+                shared["research_state"]["pages_read"].append(url)
+        elif action_type == "synthesize":
+            shared["research_state"]["synthesis_complete"] = True
+        
+        # Return the action type as the node's action
+        return action_type
+    
+    def _build_agent_prompt(self, context: Dict[str, Any]) -> str:
+        """Build comprehensive agent prompt."""
+        return f"""You are a company research agent gathering information for a job application.
+
+## CONTEXT
+
+Company: {context['company_name']}
+Job Title: {context['job_title'] or 'Not specified'}
+
+Research Goals:
+{chr(10).join(f'- {goal}' for goal in context['research_goals'])}
+
+Current Research State:
+- Searches Performed: {len(context['research_state']['searches_performed'])}
+  {chr(10).join(f'  * {s}' for s in context['research_state']['searches_performed'][-5:])}
+- Pages Read: {len(context['research_state']['pages_read'])}
+  {chr(10).join(f'  * {p}' for p in context['research_state']['pages_read'][-5:])}
+- Information Gathered:
+  {chr(10).join(f'  * {k}: {len(v)} items' for k, v in context['research_state']['information_gathered'].items())}
+- Synthesis Complete: {context['research_state']['synthesis_complete']}
+
+## ACTION SPACE
+
+You have access to these tools:
+
+1. **web_search**: Search the web for information
+   - Parameters:
+     - query: Search query string
+   - Use when: You need to find new information sources
+   
+2. **read_content**: Read and extract content from a URL
+   - Parameters:
+     - url: The URL to read
+     - focus: What to look for (optional)
+   - Use when: You found a promising URL in search results
+   
+3. **synthesize**: Compile gathered information into insights
+   - Parameters: none
+   - Use when: You have enough information to meet research goals
+   
+4. **finish**: Complete the research process
+   - Parameters: none
+   - Use when: Synthesis is complete or no more useful research possible
+
+## NEXT ACTION
+
+Think through:
+1. What information do we still need?
+2. Which research goals are not yet addressed?
+3. What's the most efficient next step?
+
+Respond in YAML format:
+
+```yaml
+thinking: |
+  Your reasoning about the current state and what to do next.
+  Be specific about what information gaps exist.
+  
+action:
+  type: <web_search|read_content|synthesize|finish>
+  parameters:
+    <action-specific parameters>
+```"""
+    
+    def _default_research_goals(self) -> List[str]:
+        """Return default research goals if none specified."""
+        return [
+            "Company culture and values",
+            "Technology stack and engineering practices",
+            "Recent news and developments",
+            "Team structure and work environment",
+            "Growth trajectory and market position"
+        ]
+
+
+# Company Research Tool Nodes
+
+class WebSearchNode(Node):
+    """
+    Executes web searches using browser automation.
+    
+    This node wraps the web_search utility to perform searches based on
+    queries from DecideActionNode and stores results in shared store.
+    """
+    
+    def __init__(self):
+        super().__init__(max_retries=2, wait=1)
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract search parameters from shared store."""
+        action_params = shared.get("action_params", {})
+        query = action_params.get("query", "")
+        
+        if not query:
+            raise ValueError("No search query provided")
+        
+        return {
+            "query": query,
+            "max_results": action_params.get("max_results", 10)
+        }
+    
+    def exec(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Execute web search using utility."""
+        from utils.web_search import WebSearcher
+        
+        try:
+            # Run async search synchronously
+            import asyncio
+            
+            async def _search():
+                async with WebSearcher() as searcher:
+                    results = await searcher.search(
+                        params["query"], 
+                        max_results=params["max_results"]
+                    )
+                    return [r.to_dict() for r in results]
+            
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            results = loop.run_until_complete(_search())
+            loop.close()
+            
+            return results
+        except Exception as e:
+            logger.error(f"Web search failed: {e}")
+            return []
+    
+    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: List[Dict[str, Any]]) -> str:
+        """Store search results in shared store."""
+        shared["search_results"] = exec_res
+        
+        # Update research state with found URLs
+        if "research_state" not in shared:
+            shared["research_state"] = {"information_gathered": {}}
+        
+        if "search_results" not in shared["research_state"]["information_gathered"]:
+            shared["research_state"]["information_gathered"]["search_results"] = []
+        
+        # Add new results to gathered information
+        for result in exec_res:
+            shared["research_state"]["information_gathered"]["search_results"].append({
+                "title": result.get("title", ""),
+                "url": result.get("url", ""),
+                "snippet": result.get("snippet", "")
+            })
+        
+        logger.info(f"Found {len(exec_res)} search results")
+        return "decide"  # Return to DecideActionNode
+
+
+class ReadContentNode(Node):
+    """
+    Reads and extracts content from URLs.
+    
+    This node wraps the web_scraper utility to extract content from
+    URLs identified by web searches or provided by DecideActionNode.
+    """
+    
+    def __init__(self):
+        super().__init__(max_retries=3, wait=2)
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract URL and focus parameters from shared store."""
+        action_params = shared.get("action_params", {})
+        url = action_params.get("url", "")
+        
+        if not url:
+            raise ValueError("No URL provided to read")
+        
+        return {
+            "url": url,
+            "focus": action_params.get("focus", "")
+        }
+    
+    def exec(self, params: Dict[str, Any]) -> Optional[str]:
+        """Scrape content from URL using utility."""
+        from utils.web_scraper import scrape_url
+        
+        try:
+            content = scrape_url(params["url"])
+            
+            if content and params.get("focus"):
+                # If focus area specified, we could filter content
+                # For now, just log it
+                logger.info(f"Reading content with focus on: {params['focus']}")
+            
+            return content
+        except Exception as e:
+            logger.error(f"Content extraction failed: {e}")
+            return None
+    
+    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: Optional[str]) -> str:
+        """Store scraped content in shared store."""
+        shared["current_content"] = exec_res
+        shared["current_url"] = prep_res["url"]
+        
+        if exec_res:
+            # Update research state to indicate we have content to analyze
+            if "research_state" not in shared:
+                shared["research_state"] = {"information_gathered": {}}
+            
+            if "content_to_analyze" not in shared["research_state"]["information_gathered"]:
+                shared["research_state"]["information_gathered"]["content_to_analyze"] = []
+            
+            shared["research_state"]["information_gathered"]["content_to_analyze"].append({
+                "url": prep_res["url"],
+                "has_content": True,
+                "focus": prep_res.get("focus", "")
+            })
+            
+            logger.info(f"Successfully read content from {prep_res['url']}")
+        else:
+            logger.warning(f"Failed to extract content from {prep_res['url']}")
+        
+        return "decide"  # Return to DecideActionNode
+
+
+class SynthesizeInfoNode(Node):
+    """
+    Synthesizes gathered information into structured insights.
+    
+    This node uses an LLM to extract and organize specific information
+    from the content gathered during research, based on research goals.
+    """
+    
+    def __init__(self):
+        super().__init__(max_retries=2, wait=1)
+        self.llm = get_default_llm_wrapper()
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Gather all research data for synthesis."""
+        research_state = shared.get("research_state", {})
+        information_gathered = research_state.get("information_gathered", {})
+        
+        # Collect all content to synthesize
+        content_pieces = []
+        
+        # Add search results
+        for result in information_gathered.get("search_results", []):
+            content_pieces.append(f"Search Result: {result.get('title', '')}\n{result.get('snippet', '')}")
+        
+        # Add current content if available
+        if shared.get("current_content"):
+            content_pieces.append(f"Page Content:\n{shared['current_content'][:2000]}...")  # Limit length
+        
+        if not content_pieces:
+            raise ValueError("No content available to synthesize")
+        
+        return {
+            "content": "\n\n---\n\n".join(content_pieces),
+            "company_name": shared.get("company_name", ""),
+            "job_title": shared.get("job_title", ""),
+            "research_goals": shared.get("research_goals", [])
+        }
+    
+    def exec(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Use LLM to synthesize information based on research goals."""
+        prompt = f"""Analyze the following research content about {context['company_name']} and extract key insights.
+
+Job Title: {context['job_title'] or 'Not specified'}
+
+Research Goals:
+{chr(10).join(f'- {goal}' for goal in context['research_goals'])}
+
+Content to Analyze:
+{context['content']}
+
+Extract and organize insights into these categories:
+1. Company Culture & Values
+2. Technology Stack & Practices  
+3. Recent Developments
+4. Team & Work Environment
+5. Market Position & Growth
+6. Other Notable Information
+
+For each category, provide 2-5 bullet points of specific, factual information found in the content.
+If a category has no relevant information, mark it as "No information found."
+
+Respond in YAML format with the structure shown above."""
+
+        try:
+            response = self.llm.call_llm_structured_sync(
+                prompt=prompt,
+                output_format="yaml",
+                model="claude-3-opus"
+            )
+            
+            return response
+        except Exception as e:
+            logger.error(f"Failed to synthesize information: {e}")
+            # Return basic structure on error
+            return {
+                "company_culture_values": ["No information synthesized"],
+                "technology_stack_practices": ["No information synthesized"],
+                "recent_developments": ["No information synthesized"],
+                "team_work_environment": ["No information synthesized"],
+                "market_position_growth": ["No information synthesized"],
+                "other_notable": ["Synthesis failed"]
+            }
+    
+    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: Dict[str, Any]) -> str:
+        """Store synthesized insights in shared store."""
+        # Initialize company research if not present
+        if "company_research" not in shared:
+            shared["company_research"] = {}
+        
+        # Update with synthesized information
+        shared["company_research"].update(exec_res)
+        
+        # Mark synthesis as complete in research state
+        if "research_state" in shared:
+            shared["research_state"]["synthesis_complete"] = True
+            
+            # Store synthesized categories in information_gathered
+            for category, items in exec_res.items():
+                if isinstance(items, list) and items:
+                    shared["research_state"]["information_gathered"][category] = items
+        
+        logger.info("Successfully synthesized research information")
+        return "decide"  # Return to DecideActionNode for next decision

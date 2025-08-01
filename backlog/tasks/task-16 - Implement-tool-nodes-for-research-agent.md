@@ -1,7 +1,7 @@
 ---
 id: task-16
 title: Implement tool nodes for research agent
-status: To Do
+status: Completed
 assignee: []
 created_date: '2025-07-31'
 updated_date: '2025-07-31'

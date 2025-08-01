@@ -1,7 +1,7 @@
 ---
 id: task-15
 title: Implement DecideActionNode
-status: To Do
+status: Completed
 assignee: []
 created_date: '2025-07-31'
 updated_date: '2025-07-31'
