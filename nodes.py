@@ -1,421 +1,327 @@
 """
-PocketFlow nodes for career application agent.
+Career application agent nodes.
 
-This module implements the nodes for the career application orchestration system.
-Each node represents a discrete unit of work in the job application process.
+This module implements the application-specific nodes for the career application
+orchestration system. Each node represents a discrete unit of work in the job
+application process.
 
-Following PocketFlow patterns, each node implements:
+All nodes extend PocketFlow's base Node class and implement:
 - prep(shared): Read and preprocess data from shared store
 - exec(prep_res): Execute compute logic (mainly LLM calls)
 - post(shared, prep_res, exec_res): Write results and return action
 """
 
-from typing import Dict, Any, Optional, List, Union
-from abc import ABC, abstractmethod
-import time
+from typing import Dict, Any, Optional
 import logging
+from pocketflow import Node, BatchNode
+from utils.llm_wrapper import get_default_llm_wrapper
 
 logger = logging.getLogger(__name__)
 
 
-class Node(ABC):
-    """
-    Base class for all nodes in the PocketFlow framework.
-    
-    Implements the 3-step execution pattern:
-    1. prep - Read from shared store
-    2. exec - Execute computation
-    3. post - Write to shared store and return action
-    """
-    
-    def __init__(self, name: str = None, max_retries: int = 1, wait: int = 0):
-        """
-        Initialize a node.
-        
-        Args:
-            name: Node name (defaults to class name)
-            max_retries: Maximum execution attempts (default 1 = no retry)
-            wait: Seconds to wait between retries (default 0)
-        """
-        self.name = name or self.__class__.__name__
-        self.max_retries = max_retries
-        self.wait = wait
-        self.cur_retry = 0
-        self.params = {}
-        self._transitions = {}  # action -> node mapping
-    
-    def prep(self, shared: Dict[str, Any]) -> Any:
-        """
-        Read and preprocess data from shared store.
-        
-        Args:
-            shared: The shared data store
-            
-        Returns:
-            Preprocessed data for exec()
-        """
-        return None
-    
-    @abstractmethod
-    def exec(self, prep_res: Any) -> Any:
-        """
-        Execute compute logic.
-        
-        Args:
-            prep_res: Result from prep()
-            
-        Returns:
-            Execution result for post()
-        """
-        pass
-    
-    def exec_fallback(self, prep_res: Any, exc: Exception) -> Any:
-        """
-        Handle execution failure after all retries.
-        
-        Args:
-            prep_res: Result from prep()
-            exc: The exception that caused failure
-            
-        Returns:
-            Fallback result for post()
-        """
-        raise exc
-    
-    def post(self, shared: Dict[str, Any], prep_res: Any, exec_res: Any) -> Optional[str]:
-        """
-        Postprocess and write data to shared store.
-        
-        Args:
-            shared: The shared data store
-            prep_res: Result from prep()
-            exec_res: Result from exec()
-            
-        Returns:
-            Action string for flow transition (None = "default")
-        """
-        return None
-    
-    def set_params(self, params: Dict[str, Any]) -> 'Node':
-        """Set node parameters."""
-        self.params = params
-        return self
-    
-    def run(self, shared: Dict[str, Any]) -> Optional[str]:
-        """
-        Run the node's 3-step execution.
-        
-        Args:
-            shared: The shared data store
-            
-        Returns:
-            Action string from post()
-        """
-        # Step 1: Prep
-        prep_res = self.prep(shared)
-        
-        # Step 2: Exec with retries
-        exec_res = None
-        self.cur_retry = 0
-        
-        while self.cur_retry < self.max_retries:
-            try:
-                exec_res = self.exec(prep_res)
-                break
-            except Exception as e:
-                self.cur_retry += 1
-                if self.cur_retry >= self.max_retries:
-                    exec_res = self.exec_fallback(prep_res, e)
-                    break
-                else:
-                    logger.warning(f"Node {self.name} exec failed (attempt {self.cur_retry}/{self.max_retries}): {e}")
-                    if self.wait > 0:
-                        time.sleep(self.wait)
-        
-        # Step 3: Post
-        action = self.post(shared, prep_res, exec_res)
-        return action if action is not None else "default"
-    
-    def __rshift__(self, other: 'Node') -> 'Node':
-        """
-        Connect nodes with default transition: node_a >> node_b
-        """
-        self._transitions["default"] = other
-        return other
-    
-    def __sub__(self, action: str):
-        """
-        Start named transition: node_a - "action" >> node_b
-        """
-        return _Transition(self, action)
-    
-    def __repr__(self):
-        return f"<Node: {self.name}>"
-
-
-class _Transition:
-    """Helper class for named transitions."""
-    
-    def __init__(self, source: Node, action: str):
-        self.source = source
-        self.action = action
-    
-    def __rshift__(self, target: Node) -> Node:
-        """Complete the transition: source - "action" >> target"""
-        self.source._transitions[self.action] = target
-        return target
-
-
-# Import utilities
-from utils.llm_wrapper import get_default_llm_wrapper
-import yaml
-
 class ExtractRequirementsNode(Node):
-    """Extracts structured requirements from job descriptions using LLM."""
+    """
+    Parses job descriptions to extract structured requirements.
     
-    def __init__(self, name: str = "ExtractRequirements", max_retries: int = 3, wait: int = 10):
-        super().__init__(name, max_retries, wait)
+    This node takes a job description and uses an LLM to extract key requirements
+    including technical skills, experience levels, and other qualifications.
+    """
+    
+    def __init__(self):
+        super().__init__(max_retries=3, wait=2)
         self.llm = get_default_llm_wrapper()
     
     def prep(self, shared: Dict[str, Any]) -> str:
-        """Read job description from shared store."""
-        job_description = shared.get('job_description', '')
+        """Extract job description from shared store."""
+        job_description = shared.get("job_description", "")
         if not job_description:
             raise ValueError("No job description found in shared store")
         return job_description
     
-    def exec(self, prep_res: str) -> Dict[str, Any]:
-        """Extract requirements using LLM."""
-        job_description = prep_res
+    def exec(self, job_description: str) -> Dict[str, Any]:
+        """Use LLM to extract requirements from job description."""
+        prompt = f"""
+        Extract structured requirements from this job description:
         
-        # System prompt defining the role
-        system_prompt = """You are an expert HR analyst and senior technical recruiter with deep understanding of job requirements across various industries. Your task is to extract and structure job requirements from job descriptions into a standardized YAML format."""
+        {job_description}
         
-        # Create the extraction prompt with one-shot example
-        prompt = self._create_extraction_prompt(job_description)
+        Return a YAML structure with:
+        - required_skills: List of required technical skills
+        - preferred_skills: List of nice-to-have skills
+        - experience_years: Required years of experience
+        - education: Required education level
+        - responsibilities: Key job responsibilities
+        - company_culture: Any mentioned culture/values
+        """
         
-        # Call LLM with structured output (synchronous)
-        requirements = self.llm.call_llm_structured_sync(
+        return self.llm.call_llm_structured_sync(
             prompt=prompt,
-            system_prompt=system_prompt,
             output_format="yaml",
-            temperature=0.3,  # Lower temperature for more consistent output
-            max_tokens=3000
+            model="claude-3-opus"
         )
-        
-        # Validate the extracted requirements
-        self._validate_requirements(requirements)
-        
-        return requirements
-    
-    def exec_fallback(self, prep_res: str, exc: Exception) -> Dict[str, Any]:
-        """Return empty requirements on failure."""
-        logger.error(f"Failed to extract requirements after all retries: {exc}")
-        return {
-            'extraction_failed': True,
-            'error': str(exc),
-            'role_summary': {'title': 'Unknown'},
-            'hard_requirements': {},
-            'soft_requirements': {},
-            'responsibilities': {}
-        }
     
     def post(self, shared: Dict[str, Any], prep_res: str, exec_res: Dict[str, Any]) -> Optional[str]:
         """Store extracted requirements in shared store."""
-        if exec_res.get('extraction_failed'):
-            shared['job_requirements_structured'] = None
-            shared['extraction_status'] = 'failed'
-            shared['extraction_error'] = exec_res.get('error')
-            return "failed"
-        else:
-            shared['job_requirements_structured'] = exec_res
-            shared['extraction_status'] = 'success'
-            return "success"
-    
-    def _create_extraction_prompt(self, job_description: str) -> str:
-        """Create the extraction prompt with one-shot example."""
-        return f"""Extract the job requirements from the following job description and structure them in YAML format.
-
-IMPORTANT: Your response must be ONLY valid YAML with no additional text or explanations.
-
-Here's an example of the expected format:
-
-```yaml
-role_summary:
-  title: "Senior Software Engineer"
-  company: "DeepMind"
-  location: "London, UK"
-  type: "Full-time"
-  level: "Senior"
-
-hard_requirements:
-  education:
-    - "Bachelor's degree in Computer Science or related field"
-    - "Master's degree preferred"
-  experience:
-    years_required: 5
-    specific_experience:
-      - "5+ years of software engineering experience"
-      - "3+ years with distributed systems"
-      - "Experience with machine learning infrastructure"
-  technical_skills:
-    programming_languages:
-      - "Python"
-      - "C++"
-      - "Go"
-    technologies:
-      - "Kubernetes"
-      - "TensorFlow"
-      - "Cloud platforms (GCP/AWS)"
-    concepts:
-      - "Distributed systems"
-      - "Machine learning"
-      - "System design"
-
-soft_requirements:
-  skills:
-    - "Strong communication skills"
-    - "Team collaboration"
-    - "Problem-solving ability"
-    - "Leadership experience"
-  traits:
-    - "Self-motivated"
-    - "Detail-oriented"
-    - "Adaptable to changing priorities"
-
-nice_to_have:
-  certifications:
-    - "Cloud certifications (GCP/AWS)"
-  experience:
-    - "Contributing to open source projects"
-    - "Publishing research papers"
-  skills:
-    - "Experience with JAX"
-    - "Knowledge of reinforcement learning"
-
-responsibilities:
-  primary:
-    - "Design and implement scalable ML infrastructure"
-    - "Lead technical projects and mentor junior engineers"
-    - "Collaborate with research teams"
-  secondary:
-    - "Participate in code reviews"
-    - "Contribute to technical documentation"
-    - "Present at internal tech talks"
-
-compensation_benefits:
-  salary_range: "Competitive"
-  benefits:
-    - "Health insurance"
-    - "Stock options"
-    - "Learning budget"
-    - "Flexible working hours"
-  perks:
-    - "Remote work options"
-    - "Conference attendance"
-```
-
-Now extract requirements from this job description:
-
-{job_description}
-
-Remember: Respond with ONLY the YAML structure, no additional text."""
-    
-    def _validate_requirements(self, requirements: Dict[str, Any]) -> None:
-        """Validate that extracted requirements have expected structure."""
-        required_sections = ['role_summary', 'hard_requirements', 'responsibilities']
-        
-        for section in required_sections:
-            if section not in requirements:
-                raise ValueError(f"Missing required section: {section}")
-        
-        # Validate role_summary
-        if 'title' not in requirements['role_summary']:
-            raise ValueError("Missing job title in role_summary")
-        
-        # Validate hard_requirements
-        hard_reqs = requirements['hard_requirements']
-        if not any(key in hard_reqs for key in ['education', 'experience', 'technical_skills']):
-            raise ValueError("Hard requirements must include at least one of: education, experience, technical_skills")
-        
-        logger.info(f"Successfully validated requirements for: {requirements['role_summary']['title']}")
+        shared["requirements"] = exec_res
+        logger.info(f"Extracted {len(exec_res.get('required_skills', []))} required skills")
+        return "default"
 
 
 class RequirementMappingNode(Node):
-    """Maps candidate experience to job requirements."""
+    """
+    Maps job requirements to candidate's experience from career database.
     
-    def exec(self, prep_res: Any) -> Any:
-        # TODO: Implement requirement mapping logic
-        pass
-
-
-class StrengthAssessmentNode(Node):
-    """Assesses candidate strengths relative to requirements."""
+    Creates a detailed mapping showing how the candidate's experience
+    aligns with each requirement.
+    """
     
-    def exec(self, prep_res: Any) -> Any:
-        # TODO: Implement strength assessment logic
-        pass
-
-
-class GapAnalysisNode(Node):
-    """Identifies gaps between candidate profile and requirements."""
+    def __init__(self):
+        super().__init__(max_retries=2, wait=1)
+        self.llm = get_default_llm_wrapper()
     
-    def exec(self, prep_res: Any) -> Any:
-        # TODO: Implement gap analysis logic
-        pass
-
-
-class DecideActionNode(Node):
-    """Decides what research actions to take."""
+    def prep(self, shared: Dict[str, Any]) -> tuple:
+        """Get requirements and career database."""
+        requirements = shared.get("requirements", {})
+        career_db = shared.get("career_database", {})
+        
+        if not requirements:
+            raise ValueError("No requirements found in shared store")
+        if not career_db:
+            raise ValueError("No career database found in shared store")
+            
+        return requirements, career_db
     
-    def exec(self, prep_res: Any) -> Any:
-        # TODO: Implement action decision logic
-        pass
-
-
-class CompanyResearchNode(Node):
-    """Researches company information."""
+    def exec(self, inputs: tuple) -> Dict[str, Any]:
+        """Map requirements to experience."""
+        requirements, career_db = inputs
+        
+        # Implementation would analyze career_db against requirements
+        # For now, returning placeholder
+        return {
+            "mappings": [],
+            "coverage_score": 0.0
+        }
     
-    def exec(self, prep_res: Any) -> Any:
-        # TODO: Implement company research logic
-        pass
+    def post(self, shared: Dict[str, Any], prep_res: tuple, exec_res: Dict[str, Any]) -> Optional[str]:
+        """Store requirement mappings."""
+        shared["requirement_mapping"] = exec_res
+        return "default"
 
 
-class SuitabilityScoringNode(Node):
-    """Scores candidate suitability for the role."""
+# Document Processing Nodes
+
+class ScanDocumentsNode(Node):
+    """
+    Scans Google Drive and local directories for career-related documents.
     
-    def exec(self, prep_res: Any) -> Any:
-        # TODO: Implement suitability scoring logic
-        pass
-
-
-class ExperiencePrioritizationNode(Node):
-    """Prioritizes experiences to highlight."""
+    Discovers all relevant documents that contain work experience information
+    for building the career database.
+    """
     
-    def exec(self, prep_res: Any) -> Any:
-        # TODO: Implement experience prioritization logic
-        pass
-
-
-class NarrativeStrategyNode(Node):
-    """Develops narrative strategy for application."""
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Get scan configuration from shared store."""
+        config = shared.get("scan_config", {})
+        if not config:
+            # Default configuration
+            config = {
+                "local_paths": ["~/Documents/Resume", "~/Documents/Work"],
+                "google_drive_folders": [],
+                "file_types": [".pdf", ".md", ".docx", ".txt"]
+            }
+        return config
     
-    def exec(self, prep_res: Any) -> Any:
-        # TODO: Implement narrative strategy logic
-        pass
-
-
-class CVGenerationNode(Node):
-    """Generates tailored CV."""
+    def exec(self, config: Dict[str, Any]) -> list:
+        """Scan for documents based on configuration."""
+        # TODO: Implement actual scanning
+        # Would use document_scanner utility
+        return [
+            {
+                "path": "example.pdf",
+                "type": "pdf",
+                "source": "local",
+                "modified": "2024-01-01"
+            }
+        ]
     
-    def exec(self, prep_res: Any) -> Any:
-        # TODO: Implement CV generation logic
-        pass
+    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: list) -> Optional[str]:
+        """Store document list in shared store."""
+        shared["document_sources"] = exec_res
+        logger.info(f"Found {len(exec_res)} documents to process")
+        return "default"
 
 
-class CoverLetterNode(Node):
-    """Generates tailored cover letter."""
+class ExtractExperienceNode(BatchNode):
+    """
+    Extracts work experience from discovered documents.
     
-    def exec(self, prep_res: Any) -> Any:
-        # TODO: Implement cover letter generation logic
-        pass
+    Uses document parsers and LLM to extract structured work experience
+    matching the enhanced career database schema.
+    """
+    
+    def __init__(self):
+        super().__init__(max_retries=3, wait=2)
+        self.llm = get_default_llm_wrapper()
+    
+    def prep(self, shared: Dict[str, Any]) -> list:
+        """Get list of documents to process."""
+        return shared.get("document_sources", [])
+    
+    def exec(self, document: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract experience from a single document."""
+        # TODO: Implement actual extraction
+        # Would use document parser and LLM
+        return {
+            "source": document["path"],
+            "experiences": []
+        }
+    
+    def post(self, shared: Dict[str, Any], prep_res: list, exec_res_list: list) -> Optional[str]:
+        """Store all extracted experiences."""
+        shared["extracted_experiences"] = exec_res_list
+        return "default"
+
+
+# Workflow Management Nodes
+
+class SaveCheckpointNode(Node):
+    """
+    Saves workflow state to checkpoint files for user review.
+    
+    Exports specific data to user-editable YAML files and pauses
+    the workflow for manual review and editing.
+    """
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Determine what to save based on flow context."""
+        # Get flow name from params or shared
+        flow_name = self.params.get("flow_name", "workflow")
+        
+        # Determine which data to export based on flow
+        export_config = {
+            "flow_name": flow_name,
+            "timestamp": None,  # Will be set in exec
+            "export_fields": []
+        }
+        
+        if flow_name == "analysis":
+            export_config["export_fields"] = [
+                "requirement_mapping",
+                "strengths", 
+                "gaps"
+            ]
+        elif flow_name == "narrative":
+            export_config["export_fields"] = [
+                "experience_priorities",
+                "narrative_strategy",
+                "themes"
+            ]
+            
+        return export_config
+    
+    def exec(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Save checkpoint and user-editable files."""
+        import time
+        import yaml
+        from pathlib import Path
+        
+        timestamp = int(time.time())
+        config["timestamp"] = timestamp
+        
+        # Create directories
+        Path("checkpoints").mkdir(exist_ok=True)
+        Path("outputs").mkdir(exist_ok=True)
+        
+        # Save checkpoint
+        checkpoint_file = f"checkpoints/{config['flow_name']}_{timestamp}.yaml"
+        output_file = f"outputs/{config['flow_name']}_output.yaml"
+        
+        return {
+            "checkpoint_file": checkpoint_file,
+            "output_file": output_file,
+            "config": config
+        }
+    
+    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: Dict) -> Optional[str]:
+        """Save files and pause workflow."""
+        import yaml
+        
+        # Save full checkpoint
+        with open(exec_res["checkpoint_file"], 'w') as f:
+            yaml.dump(shared, f)
+        
+        # Save user-editable output
+        output_data = {
+            "# Instructions": "Edit this file and save. The workflow will resume with your changes.",
+            "# Flow": exec_res["config"]["flow_name"],
+            "# Timestamp": exec_res["config"]["timestamp"]
+        }
+        
+        for field in exec_res["config"]["export_fields"]:
+            if field in shared:
+                output_data[field] = shared[field]
+        
+        with open(exec_res["output_file"], 'w') as f:
+            yaml.dump(output_data, f, sort_keys=False)
+        
+        logger.info(f"Checkpoint saved. Please review and edit: {exec_res['output_file']}")
+        return "pause"  # Special action to indicate workflow should pause
+
+
+class LoadCheckpointNode(Node):
+    """
+    Loads checkpoint and merges user edits to resume workflow.
+    
+    Reads the checkpoint file and user-edited output file,
+    merging changes back into the shared store.
+    """
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Determine which checkpoint to load."""
+        # Could get from params or auto-detect latest
+        flow_name = self.params.get("flow_name", "workflow")
+        return {"flow_name": flow_name}
+    
+    def exec(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Load checkpoint and user edits."""
+        import yaml
+        from pathlib import Path
+        
+        # Find latest checkpoint for this flow
+        checkpoint_dir = Path("checkpoints")
+        checkpoints = list(checkpoint_dir.glob(f"{config['flow_name']}_*.yaml"))
+        
+        if not checkpoints:
+            raise FileNotFoundError(f"No checkpoints found for {config['flow_name']}")
+        
+        latest = max(checkpoints, key=lambda p: p.stat().st_mtime)
+        
+        # Load checkpoint
+        with open(latest, 'r') as f:
+            checkpoint_data = yaml.safe_load(f)
+        
+        # Load user edits
+        output_file = f"outputs/{config['flow_name']}_output.yaml"
+        if Path(output_file).exists():
+            with open(output_file, 'r') as f:
+                user_data = yaml.safe_load(f)
+        else:
+            user_data = {}
+        
+        return {
+            "checkpoint": checkpoint_data,
+            "user_edits": user_data,
+            "checkpoint_file": str(latest)
+        }
+    
+    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: Dict) -> Optional[str]:
+        """Merge checkpoint and user edits into shared store."""
+        # Start with checkpoint data
+        shared.update(exec_res["checkpoint"])
+        
+        # Apply user edits (they take precedence)
+        for key, value in exec_res["user_edits"].items():
+            if not key.startswith("#"):  # Skip comment fields
+                shared[key] = value
+                logger.info(f"Applied user edit to field: {key}")
+        
+        return "default"

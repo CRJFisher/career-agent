@@ -12,8 +12,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from nodes import Node
-from flow import Flow, create_flow
+from pocketflow import Node, Flow
 import logging
 
 # Setup logging
@@ -30,19 +29,19 @@ class GreetingNode(Node):
         logger.info(f"GreetingNode prep: Got name '{name}'")
         return name
     
-    def exec(self, prep_res):
+    def exec(self, name):
         """Generate greeting message."""
-        greeting = f"Hello, {prep_res}!"
+        greeting = f"Hello, {name}!"
         logger.info(f"GreetingNode exec: Generated '{greeting}'")
         return greeting
     
     def post(self, shared, prep_res, exec_res):
-        """Store greeting and decide next action."""
+        """Store greeting in shared store."""
         shared['greeting'] = exec_res
         logger.info(f"GreetingNode post: Stored greeting")
         
-        # Return different actions based on name
-        if prep_res.lower() == "world":
+        # Decide next action based on whether name was provided
+        if prep_res == 'World':
             return "generic"
         else:
             return "personalized"
@@ -52,11 +51,12 @@ class GenericFollowupNode(Node):
     """Node for generic follow-up."""
     
     def exec(self, prep_res):
-        return "Welcome to PocketFlow! Please provide your name for a personalized experience."
+        message = "Please tell me your name for a personalized experience."
+        logger.info(f"GenericFollowupNode: {message}")
+        return message
     
     def post(self, shared, prep_res, exec_res):
         shared['followup'] = exec_res
-        logger.info("GenericFollowupNode: Added generic message")
         return "default"
 
 
@@ -66,12 +66,13 @@ class PersonalizedFollowupNode(Node):
     def prep(self, shared):
         return shared.get('name', 'Friend')
     
-    def exec(self, prep_res):
-        return f"Great to meet you, {prep_res}! Let's process your job application."
+    def exec(self, name):
+        message = f"Nice to meet you, {name}! How can I help you today?"
+        logger.info(f"PersonalizedFollowupNode: {message}")
+        return message
     
     def post(self, shared, prep_res, exec_res):
         shared['followup'] = exec_res
-        logger.info("PersonalizedFollowupNode: Added personalized message")
         return "default"
 
 
@@ -80,64 +81,65 @@ class FinalNode(Node):
     
     def prep(self, shared):
         return {
-            'greeting': shared.get('greeting'),
-            'followup': shared.get('followup')
+            'greeting': shared.get('greeting', ''),
+            'followup': shared.get('followup', '')
         }
     
-    def exec(self, prep_res):
-        summary = f"Conversation summary:\n1. {prep_res['greeting']}\n2. {prep_res['followup']}"
+    def exec(self, data):
+        summary = f"Summary: {data['greeting']} - {data['followup']}"
+        logger.info(f"FinalNode: {summary}")
         return summary
     
     def post(self, shared, prep_res, exec_res):
         shared['summary'] = exec_res
-        logger.info("FinalNode: Created summary")
-        return "complete"
+        return None  # End of flow
 
 
-def demo_basic_flow():
-    """Demonstrate basic flow with conditional transitions."""
-    print("\n=== Basic Flow Demo ===")
+def demo_action_based_flow():
+    """Demonstrate action-based flow transitions."""
+    print("=== Action-Based Flow Demo ===")
     
     # Create nodes
-    greeting = GreetingNode(name="Greeting")
-    generic = GenericFollowupNode(name="GenericFollowup")
-    personal = PersonalizedFollowupNode(name="PersonalizedFollowup")
-    final = FinalNode(name="Final")
+    greeting = GreetingNode()
+    generic = GenericFollowupNode()
+    personalized = PersonalizedFollowupNode()
+    final = FinalNode()
     
-    # Connect nodes with action-based transitions
+    # Define transitions using action strings
     greeting - "generic" >> generic
-    greeting - "personalized" >> personal
+    greeting - "personalized" >> personalized
     generic >> final
-    personal >> final
+    personalized >> final
     
-    # Create flow
-    flow = Flow(start=greeting, name="GreetingFlow")
+    # Create the flow starting with greeting
+    flow = Flow(start=greeting)
     
-    # Test with generic name
-    print("\nTest 1: Generic greeting")
-    shared = {'name': 'World'}
-    flow.run(shared)
-    print(f"Result: {shared['summary']}")
+    # Test with no name (generic path)
+    print("\n--- Test 1: No name provided ---")
+    shared1 = {}
+    flow.run(shared1)
+    print(f"Result: {shared1.get('summary', 'No summary')}")
     
-    # Test with personalized name
-    print("\nTest 2: Personalized greeting")
-    shared = {'name': 'Alice'}
-    flow.run(shared)
-    print(f"Result: {shared['summary']}")
+    # Test with name (personalized path)
+    print("\n--- Test 2: Name provided ---")
+    shared2 = {'name': 'Alice'}
+    flow.run(shared2)
+    print(f"Result: {shared2.get('summary', 'No summary')}")
 
 
 def demo_sequential_flow():
-    """Demonstrate sequential flow creation helper."""
+    """Demonstrate sequential flow."""
     print("\n\n=== Sequential Flow Demo ===")
     
-    # Create simple sequential nodes
     class StepNode(Node):
         def __init__(self, step_num):
-            super().__init__(name=f"Step{step_num}")
+            super().__init__()
             self.step_num = step_num
-        
+            
         def exec(self, prep_res):
-            return f"Completed step {self.step_num}"
+            message = f"Executing step {self.step_num}"
+            logger.info(message)
+            return message
         
         def post(self, shared, prep_res, exec_res):
             if 'steps' not in shared:
@@ -148,8 +150,12 @@ def demo_sequential_flow():
     # Create nodes
     steps = [StepNode(i) for i in range(1, 4)]
     
-    # Create flow using helper
-    flow = create_flow("SequentialFlow", *steps)
+    # Connect nodes sequentially
+    for i in range(len(steps) - 1):
+        steps[i] >> steps[i + 1]
+    
+    # Create flow
+    flow = Flow(start=steps[0])
     
     # Run flow
     shared = {}
@@ -165,21 +171,18 @@ def demo_nested_flow():
     print("\n\n=== Nested Flow Demo ===")
     
     # Create a sub-flow
-    step1 = GreetingNode(name="SubGreeting")
-    step2 = PersonalizedFollowupNode(name="SubFollowup")
+    step1 = GreetingNode()
+    step2 = PersonalizedFollowupNode()
     step1 >> step2
     
-    subflow = Flow(start=step1, name="SubFlow")
+    subflow = Flow(start=step1)
     
     # Create main flow with subflow as a node
-    start = GenericFollowupNode(name="MainStart")
-    start >> subflow >> FinalNode(name="MainFinal")
+    start = GenericFollowupNode()
+    final = FinalNode()
+    start >> subflow >> final
     
-    main_flow = Flow(start=start, name="MainFlow")
-    
-    # Visualize the flow
-    print("\nFlow structure:")
-    print(main_flow.visualize())
+    main_flow = Flow(start=start)
     
     # Run the flow
     shared = {'name': 'Bob'}
@@ -189,9 +192,6 @@ def demo_nested_flow():
 
 
 if __name__ == "__main__":
-    # Run all demos
-    demo_basic_flow()
+    demo_action_based_flow()
     demo_sequential_flow()
     demo_nested_flow()
-    
-    print("\n✅ All demos completed successfully!")

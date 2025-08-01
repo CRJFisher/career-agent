@@ -1,28 +1,30 @@
 """
-Main orchestrator for the PocketFlow career application agent.
+Career Application Agent - Main Entry Point
 
-This is the entry point that coordinates all flows to process job applications.
-Following PocketFlow patterns, flows are connected and executed through a
-shared store that maintains state across the entire application process.
+This application helps automate job application customization by:
+1. Extracting work experience from documents
+2. Analyzing job requirements
+3. Mapping experience to requirements
+4. Generating tailored application documents
+
+Built using PocketFlow's minimal LLM orchestration framework.
 """
 
 import argparse
 import logging
+import yaml
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
-# Import flows
 from flow import (
-    Flow,
+    ExperienceDatabaseFlow,
     RequirementExtractionFlow,
     AnalysisFlow,
-    CompanyResearchFlow,
-    AssessmentFlow,
     NarrativeFlow,
     GenerationFlow
 )
 
-# Setup logging
+# Set up logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -30,200 +32,177 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class ApplicationOrchestrator(Flow):
-    """
-    Main orchestrator flow that coordinates all sub-flows for job application processing.
-    
-    This is implemented as a Flow itself, allowing it to be composed with other flows
-    and maintain the same execution pattern.
-    """
-    
-    def __init__(self):
-        # Create all sub-flows
-        self.requirement_flow = RequirementExtractionFlow()
-        self.analysis_flow = AnalysisFlow()
-        self.research_flow = CompanyResearchFlow()
-        self.assessment_flow = AssessmentFlow()
-        self.narrative_flow = NarrativeFlow()
-        self.generation_flow = GenerationFlow()
-        
-        # Connect flows in sequence
-        # Requirement extraction must succeed to continue
-        self.requirement_flow - "success" >> self.analysis_flow
-        
-        # After analysis, always do research (if URL provided)
-        self.analysis_flow >> self.research_flow
-        
-        # After research (or skipping it), assess suitability
-        self.research_flow >> self.assessment_flow
-        
-        # After assessment, develop narrative
-        self.assessment_flow >> self.narrative_flow
-        
-        # Finally generate documents
-        self.narrative_flow >> self.generation_flow
-        
-        # Initialize with requirement extraction as start
-        super().__init__(start=self.requirement_flow, name="ApplicationOrchestrator")
-    
-    def post(self, shared: Dict[str, Any], prep_res: Any, exec_res: Any) -> Optional[str]:
-        """Check if application processing completed successfully."""
-        if shared.get('flow_error'):
-            logger.error(f"Application processing failed: {shared['flow_error']}")
-            return "error"
-        
-        # Check if we have generated documents
-        if shared.get('cv_generated') and shared.get('cover_letter_generated'):
-            logger.info("Application documents generated successfully")
-            return "success"
-        else:
-            logger.warning("Application processing completed but documents not generated")
-            return "incomplete"
+def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
+    """Load configuration from YAML file."""
+    if Path(config_path).exists():
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f)
+    return {}
 
 
-def load_career_database(db_path: Path) -> Dict[str, Any]:
-    """Load and parse the career database YAML file."""
-    try:
-        from utils.database_parser import CareerDatabaseParser
-        parser = CareerDatabaseParser()
-        return parser.parse(str(db_path))
-    except Exception as e:
-        logger.error(f"Failed to load career database: {e}")
-        raise
-
-
-def save_outputs(shared: Dict[str, Any], output_dir: Path) -> None:
-    """Save generated documents and analysis results to output directory."""
-    import json
-    import yaml
+def build_career_database(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Build or update career database from documents."""
+    logger.info("Building career database from documents...")
     
-    # Save extracted requirements
-    if shared.get('job_requirements_structured'):
-        req_path = output_dir / 'extracted_requirements.yaml'
-        with open(req_path, 'w') as f:
-            yaml.dump(shared['job_requirements_structured'], f, default_flow_style=False)
-        logger.info(f"Saved extracted requirements to {req_path}")
-    
-    # Save analysis results
-    analysis_data = {
-        'strengths': shared.get('strengths_analysis', {}),
-        'gaps': shared.get('gaps_analysis', {}),
-        'suitability_score': shared.get('suitability_score', 0),
-        'narrative_strategy': shared.get('narrative_strategy', {})
+    shared = {
+        "scan_config": config.get("document_sources", {})
     }
     
-    if any(analysis_data.values()):
-        analysis_path = output_dir / 'analysis_results.json'
-        with open(analysis_path, 'w') as f:
-            json.dump(analysis_data, f, indent=2)
-        logger.info(f"Saved analysis results to {analysis_path}")
+    flow = ExperienceDatabaseFlow()
+    flow.run(shared)
     
-    # Save generated CV
-    if shared.get('generated_cv'):
-        cv_path = output_dir / 'generated_cv.md'
-        with open(cv_path, 'w') as f:
-            f.write(shared['generated_cv'])
-        logger.info(f"Saved generated CV to {cv_path}")
+    return shared.get("career_database", {})
+
+
+def process_job_application(job_description: str, career_db: Dict[str, Any]) -> None:
+    """Process a complete job application."""
+    logger.info("Starting job application processing...")
     
-    # Save generated cover letter
-    if shared.get('generated_cover_letter'):
-        letter_path = output_dir / 'generated_cover_letter.md'
-        with open(letter_path, 'w') as f:
-            f.write(shared['generated_cover_letter'])
-        logger.info(f"Saved generated cover letter to {letter_path}")
+    # Initialize shared store
+    shared = {
+        "job_description": job_description,
+        "career_database": career_db
+    }
+    
+    # Step 1: Extract requirements
+    logger.info("Extracting job requirements...")
+    req_flow = RequirementExtractionFlow()
+    req_flow.run(shared)
+    
+    # Step 2: Analyze fit
+    logger.info("Analyzing candidate fit...")
+    analysis_flow = AnalysisFlow()
+    result = analysis_flow.run(shared)
+    
+    if result == "pause":
+        logger.info("Workflow paused for user review. Edit outputs/analysis_output.yaml and run with --resume")
+        return
+    
+    # Step 3: Develop narrative (if not paused)
+    logger.info("Developing narrative strategy...")
+    narrative_flow = NarrativeFlow()
+    result = narrative_flow.run(shared)
+    
+    if result == "pause":
+        logger.info("Workflow paused for user review. Edit outputs/narrative_output.yaml and run with --resume")
+        return
+    
+    # Step 4: Generate documents
+    logger.info("Generating application documents...")
+    gen_flow = GenerationFlow()
+    gen_flow.run(shared)
+    
+    logger.info("Application processing complete!")
+
+
+def resume_workflow(flow_name: str) -> None:
+    """Resume a paused workflow from checkpoint."""
+    logger.info(f"Resuming {flow_name} workflow...")
+    
+    # Load checkpoint will be handled by the flow
+    shared = {}
+    
+    if flow_name == "analysis":
+        # Resume from narrative flow
+        narrative_flow = NarrativeFlow()
+        narrative_flow.run(shared)
+    elif flow_name == "narrative":
+        # Resume from generation flow
+        gen_flow = GenerationFlow()
+        gen_flow.run(shared)
+    else:
+        logger.error(f"Unknown flow: {flow_name}")
 
 
 def main():
-    """Command-line interface for the career application agent."""
-    parser = argparse.ArgumentParser(
-        description='PocketFlow Career Application Agent - Automates job application customization'
+    """Main entry point."""
+    parser = argparse.ArgumentParser(description="Career Application Agent")
+    parser.add_argument(
+        "--build-db",
+        action="store_true",
+        help="Build career database from documents"
     )
     parser.add_argument(
-        'job_description',
+        "--job-file",
         type=str,
-        help='Path to job description file or job description text'
+        help="Path to job description file"
     )
     parser.add_argument(
-        '--career-db',
-        type=Path,
-        required=True,
-        help='Path to career database YAML file'
-    )
-    parser.add_argument(
-        '--output-dir',
-        type=Path,
-        default=Path('./output'),
-        help='Directory for generated documents (default: ./output)'
-    )
-    parser.add_argument(
-        '--company-url',
+        "--resume",
         type=str,
-        help='Company website URL for additional research'
+        choices=["analysis", "narrative"],
+        help="Resume from a checkpoint"
     )
     parser.add_argument(
-        '--debug',
-        action='store_true',
-        help='Enable debug logging'
+        "--config",
+        type=str,
+        default="config.yaml",
+        help="Configuration file path"
     )
     
     args = parser.parse_args()
+    config = load_config(args.config)
     
-    # Set debug logging if requested
-    if args.debug:
-        logging.getLogger().setLevel(logging.DEBUG)
+    # Build career database if requested
+    if args.build_db:
+        career_db = build_career_database(config)
+        db_path = Path("career_database.yaml")
+        with open(db_path, 'w') as f:
+            yaml.dump(career_db, f)
+        logger.info(f"Career database saved to {db_path}")
+        return
     
-    # Read job description
-    if Path(args.job_description).exists():
-        logger.info(f"Reading job description from file: {args.job_description}")
-        with open(args.job_description, 'r') as f:
-            job_description = f.read()
-    else:
-        logger.info("Using provided text as job description")
-        job_description = args.job_description
+    # Resume workflow if requested
+    if args.resume:
+        resume_workflow(args.resume)
+        return
     
-    # Create output directory
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Output directory: {args.output_dir}")
-    
-    # Load career database
-    logger.info(f"Loading career database from: {args.career_db}")
-    career_data = load_career_database(args.career_db)
-    
-    # Initialize shared store
-    shared_store = {
-        'job_description': job_description,
-        'career_database': career_data,
-        'company_url': args.company_url,
-        'output_dir': str(args.output_dir)
-    }
-    
-    # Create and run the orchestrator
-    logger.info("Starting application processing...")
-    orchestrator = ApplicationOrchestrator()
-    
-    # Optionally visualize the flow
-    if args.debug:
-        print("\n" + orchestrator.visualize() + "\n")
-    
-    try:
-        # Run the orchestrator
-        final_action = orchestrator.run(shared_store)
-        
-        # Save outputs
-        save_outputs(shared_store, args.output_dir)
-        
-        if final_action == "success":
-            print(f"\n✅ Application documents generated successfully in: {args.output_dir}")
-            return 0
-        else:
-            print(f"\n⚠️  Application processing completed with status: {final_action}")
-            return 1
+    # Process job application
+    if args.job_file:
+        # Load career database
+        db_path = Path("career_database.yaml")
+        if not db_path.exists():
+            logger.error("Career database not found. Run with --build-db first.")
+            return
             
-    except Exception as e:
-        logger.error(f"Application processing failed: {e}")
-        print(f"\n❌ Error: {e}")
-        return 2
+        with open(db_path, 'r') as f:
+            career_db = yaml.safe_load(f)
+            
+        # Load job description
+        with open(args.job_file, 'r') as f:
+            job_description = f.read()
+            
+        process_job_application(job_description, career_db)
+    else:
+        # Demo mode
+        logger.info("Running in demo mode...")
+        demo_job = """
+        Senior Software Engineer - AI/ML Platform
+        
+        We're looking for an experienced engineer to help build our ML platform.
+        
+        Requirements:
+        - 5+ years Python experience
+        - Experience with ML frameworks (PyTorch, TensorFlow)
+        - Strong software engineering skills
+        - Experience with distributed systems
+        
+        Nice to have:
+        - Kubernetes experience
+        - Cloud platforms (AWS, GCP)
+        """
+        
+        demo_career_db = {
+            "experience": [{
+                "title": "Software Engineer",
+                "company": "Tech Corp",
+                "duration": "2020-2023",
+                "technologies": ["Python", "PyTorch", "AWS"]
+            }]
+        }
+        
+        process_job_application(demo_job, demo_career_db)
 
 
-if __name__ == '__main__':
-    exit(main())
+if __name__ == "__main__":
+    main()

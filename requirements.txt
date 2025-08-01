@@ -1,8 +1,8 @@
 # Core dependencies for Career Application Agent
 
-# Note: The-Pocket/PocketFlow is embedded in this project
-# The framework is minimal (100 lines) and we've implemented it directly
-# in nodes.py, flow.py following the framework's patterns
+# Note: PocketFlow is included as pocketflow.py (100 lines)
+# We import from it rather than re-implementing
+# This allows easy updates by replacing the file
 
 # YAML parsing for career database
 PyYAML>=6.0.1
