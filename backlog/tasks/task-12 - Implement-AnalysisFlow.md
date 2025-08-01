@@ -11,32 +11,39 @@ dependencies: []
 
 ## Description
 
-Create a workflow that chains RequirementMappingNode, StrengthAssessmentNode, and GapAnalysisNode in sequence for complete requirement analysis. This linear multi-step process is a canonical use case for PocketFlow Workflow pattern. The flow executes three distinct analytical steps: mapping requirements to experiences, assessing mapping strength, and identifying/mitigating gaps. Output serves as foundation for suitability assessment.
+**UPDATED**: Now includes checkpoint functionality for user review.
+
+Create a workflow that chains RequirementMappingNode, StrengthAssessmentNode, and GapAnalysisNode in sequence for complete requirement analysis, followed by SaveCheckpointNode for user review. This enhanced workflow allows users to review and edit the analysis before proceeding. The flow executes three analytical steps then pauses, saving results to an editable YAML file.
 
 ## Acceptance Criteria
 
 - [ ] AnalysisFlow class created in flow.py
-- [ ] Three nodes instantiated and connected in sequence
-- [ ] Flow graph: start -> RequirementMapping -> StrengthAssessment -> GapAnalysis -> end
+- [ ] Four nodes connected: Mapping -> Assessment -> Gap -> SaveCheckpoint
+- [ ] SaveCheckpointNode saves analysis_output.yaml for user review
+- [ ] Output file includes clear sections and editing instructions
+- [ ] Flow pauses after saving checkpoint
+- [ ] LoadCheckpointNode available for resuming workflow
 - [ ] Each node output feeds next node via shared store
-- [ ] Proper action string handling between nodes
-- [ ] Complete analysis results in requirement_mapping_final and gaps
+- [ ] Complete analysis results preserved in checkpoint
 - [ ] Error handling for node failures
 - [ ] Flow maintains data integrity throughout pipeline
 - [ ] Unit tests created for all public methods
 - [ ] Test coverage of at least 80%
-- [ ] Integration tests with multiple nodes working together
-- [ ] Mock-based testing for external dependencies (node dependencies)
-- [ ] Error cases tested (node failures, data corruption, invalid states)
-- [ ] End-to-end flow testing with realistic data
+- [ ] Tests for checkpoint save/load functionality
+- [ ] Tests for user edit detection and merging
 
 ## Implementation Plan
 
 1. Create AnalysisFlow class inheriting from Flow
-2. Initialize three nodes in constructor
+2. Initialize four nodes including SaveCheckpointNode
 3. Define flow graph with sequential connections
-4. Map action strings: each node returns 'continue' except last
-5. Implement run() method for flow execution
-6. Ensure data passes correctly between nodes
-7. Add error handling and logging
-8. Return final state with complete analysis
+4. Configure SaveCheckpointNode to export analysis results
+5. Map action strings: each node returns 'continue'
+6. Implement pause mechanism after checkpoint save
+7. Add support for LoadCheckpointNode on resume
+8. Ensure data integrity through save/load cycle
+9. Add user notification for review step
+
+## Dependencies
+- SaveCheckpointNode (task-42)
+- LoadCheckpointNode (task-43)

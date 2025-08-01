@@ -11,31 +11,40 @@ dependencies: []
 
 ## Description
 
-Implement utils/web_search.py module that provides web search functionality for the company research agent. Following PocketFlow's philosophy of separating external interactions from core logic, this utility encapsulates web search API calls. The agent will use this to find relevant URLs about the company including official website, news articles, and blog posts. Must handle rate limiting and API failures gracefully.
+**UPDATED**: This task is now part of the AI-driven browser approach. Instead of a standalone search utility, this will be integrated with the browser automation tools.
+
+Implement utils/web_search.py module that provides web search functionality through AI-driven browser automation. This utility will work in conjunction with the BrowserActionNode to perform intelligent web searches, navigate results, and extract information. The implementation should support Google search through headless browser automation rather than API calls, enabling more sophisticated interaction with search results.
 
 ## Acceptance Criteria
 
-- [ ] utils/web_search.py file created with search function
-- [ ] search(query: str) function returns list of results
-- [ ] Each result contains URL title and snippet
-- [ ] Configurable search engine backend (Google/Bing/DuckDuckGo)
-- [ ] Error handling for API failures and rate limits
-- [ ] Retry logic with exponential backoff implemented
-- [ ] Results filtered for relevance and quality
-- [ ] Environment variables for API keys supported
-- [ ] Unit tests created for all public methods
+- [ ] utils/web_search.py created with browser-based search
+- [ ] Integration with Playwright/Puppeteer for browser automation
+- [ ] search(query: str, browser) function performs Google search
+- [ ] Handles dynamic content and JavaScript rendering
+- [ ] Extracts organic results with URL, title, snippet
+- [ ] Filters out ads and sponsored content
+- [ ] Supports pagination through results
+- [ ] AI-driven result relevance scoring
+- [ ] Error handling for page load failures
+- [ ] Screenshot capability for debugging
+- [ ] Unit tests with mocked browser interactions
 - [ ] Test coverage of at least 80%
-- [ ] Mock-based testing for external dependencies (search APIs, network calls)
-- [ ] Error cases tested (API failures, rate limits, network timeouts, invalid queries)
-- [ ] Edge cases tested (empty results, malformed API responses, missing API keys)
+- [ ] Tests for JavaScript-heavy pages
+- [ ] Tests for various Google result formats
 
 ## Implementation Plan
 
 1. Create utils/web_search.py module
-2. Implement search(query) function signature
-3. Add support for search engine API (determine which to use)
-4. Structure results as list of dicts with url, title, snippet
-5. Implement rate limiting and retry logic
-6. Add error handling for network issues
-7. Support configuration via environment variables
-8. Add logging for debugging purposes
+2. Set up Playwright browser automation
+3. Implement Google search navigation
+4. Add result extraction with CSS/XPath selectors
+5. Implement AI-based relevance scoring
+6. Add pagination support
+7. Handle dynamic content loading
+8. Add screenshot and debugging features
+9. Create comprehensive test suite
+
+## Dependencies
+- Playwright or Puppeteer for browser automation
+- BeautifulSoup for HTML parsing
+- LLM wrapper for relevance scoring
