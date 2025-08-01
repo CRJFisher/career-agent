@@ -11,28 +11,60 @@ from utils.database_parser import (
     load_career_database,
     validate_career_database,
     merge_career_databases,
-    CareerDatabaseError
+    CareerDatabaseError,
+    CareerDatabaseParser
 )
 
 
 @pytest.fixture
 def sample_career_data():
-    """Sample career database data for testing."""
+    """Sample career database data for testing with enhanced schema."""
     return {
         "personal_info": {
             "name": "John Doe",
             "email": "john.doe@example.com",
             "phone": "+1-234-567-8900",
-            "location": "San Francisco, CA"
+            "location": "San Francisco, CA",
+            "linkedin": "https://linkedin.com/in/johndoe",
+            "github": "https://github.com/johndoe"
         },
         "experience": [
             {
                 "title": "Senior Software Engineer",
                 "company": "Tech Corp",
                 "duration": "2020-2023",
-                "description": "Led development of microservices",
-                "achievements": ["Reduced latency by 50%", "Mentored 5 engineers"],
-                "technologies": ["Python", "Kubernetes", "AWS"]
+                "location": "San Francisco, CA",
+                "description": "Led development of microservices architecture",
+                "achievements": [
+                    "Reduced latency by 50%", 
+                    "Mentored 5 engineers",
+                    "Led migration to Kubernetes"
+                ],
+                "technologies": ["Python", "Kubernetes", "AWS"],
+                "team_size": 12,
+                "reason_for_leaving": "Seeking new challenges",
+                "company_culture_pros": ["Innovation-focused", "Great work-life balance"],
+                "company_culture_cons": ["Rapid changes in priorities"],
+                "projects": [
+                    {
+                        "title": "Payment Processing System",
+                        "description": "Designed and implemented high-throughput payment processing system using event-driven architecture",
+                        "achievements": [
+                            "Processed $10M+ transactions daily",
+                            "Achieved 99.99% uptime",
+                            "Reduced processing time by 60%"
+                        ],
+                        "role": "Tech Lead",
+                        "technologies": ["Python", "Kafka", "PostgreSQL"],
+                        "key_stakeholders": ["CFO", "Payment Partners", "Compliance Team"],
+                        "notable_challenges": [
+                            "Implementing PCI compliance",
+                            "Handling peak holiday traffic"
+                        ],
+                        "direct_reports": 3,
+                        "reports_to": "Engineering Manager"
+                    }
+                ]
             }
         ],
         "education": [
@@ -40,13 +72,63 @@ def sample_career_data():
                 "degree": "BS Computer Science",
                 "institution": "University of Technology",
                 "year": "2016",
-                "details": "GPA 3.8/4.0"
+                "location": "Boston, MA",
+                "gpa": "3.8/4.0",
+                "honors": "Magna Cum Laude",
+                "coursework": ["Machine Learning", "Distributed Systems", "Algorithms"]
             }
         ],
         "skills": {
-            "technical": ["Python", "JavaScript", "Docker"],
-            "soft": ["Leadership", "Communication"],
-            "languages": ["English", "Spanish"]
+            "technical": ["Python", "JavaScript", "Docker", "Kubernetes"],
+            "soft": ["Leadership", "Communication", "Problem Solving"],
+            "languages": ["English", "Spanish"],
+            "tools": ["Git", "Jira", "VS Code"],
+            "frameworks": ["Django", "React", "FastAPI"],
+            "methodologies": ["Agile", "Scrum", "TDD"]
+        },
+        "projects": [
+            {
+                "name": "OpenSourceContrib",
+                "type": "open_source",
+                "description": "Major contributor to popular Python web framework",
+                "role": "Core Contributor",
+                "duration": "2019-Present",
+                "technologies": ["Python", "GitHub Actions", "Docker"],
+                "outcomes": [
+                    "Implemented async support",
+                    "500+ GitHub stars on my PRs",
+                    "Improved performance by 30%"
+                ],
+                "url": "https://github.com/example/project",
+                "context": "Started contributing to give back to the community",
+                "team_size": 20,
+                "users": "10K+ developers worldwide"
+            }
+        ],
+        "certifications": [
+            {
+                "name": "AWS Solutions Architect",
+                "issuer": "Amazon Web Services",
+                "year": "2022",
+                "credential_id": "AWS-123456",
+                "url": "https://aws.amazon.com/verification/123456"
+            }
+        ]
+    }
+
+
+@pytest.fixture
+def minimal_career_data():
+    """Minimal valid career database."""
+    return {
+        "personal_info": {
+            "name": "Jane Smith",
+            "email": "jane@example.com"
+        },
+        "experience": [],
+        "education": [],
+        "skills": {
+            "technical": ["Python"]
         }
     }
 
@@ -79,6 +161,13 @@ def temp_yaml_dir(tmp_path, sample_career_data):
     with open(skills_file, 'w') as f:
         yaml.dump({"skills": sample_career_data["skills"]}, f)
     
+    projects_file = tmp_path / "04_projects.yaml"
+    with open(projects_file, 'w') as f:
+        yaml.dump({
+            "projects": sample_career_data.get("projects", []),
+            "certifications": sample_career_data.get("certifications", [])
+        }, f)
+    
     return tmp_path
 
 
@@ -96,6 +185,7 @@ class TestLoadCareerDatabase:
         assert data["personal_info"] == sample_career_data["personal_info"]
         assert data["experience"] == sample_career_data["experience"]
         assert data["skills"] == sample_career_data["skills"]
+        assert data["projects"] == sample_career_data["projects"]
     
     def test_file_not_found(self):
         """Test error handling for non-existent file."""
@@ -145,6 +235,11 @@ class TestValidateCareerDatabase:
         warnings = validate_career_database(sample_career_data)
         assert len(warnings) == 0
     
+    def test_minimal_valid_database(self, minimal_career_data):
+        """Test validation of minimal valid database."""
+        warnings = validate_career_database(minimal_career_data)
+        assert len(warnings) == 0
+    
     def test_missing_recommended_keys(self):
         """Test warnings for missing recommended keys."""
         data = {"some_other_key": "value"}
@@ -179,6 +274,44 @@ class TestValidateCareerDatabase:
         data = {"experience": [{"description": "Some job"}]}
         warnings = validate_career_database(data)
         assert any("missing 'title' or 'company'" in w for w in warnings)
+    
+    def test_invalid_experience_projects(self):
+        """Test warnings for invalid projects in experience."""
+        data = {
+            "experience": [{
+                "title": "Engineer",
+                "company": "Corp",
+                "projects": "not a list"
+            }]
+        }
+        warnings = validate_career_database(data)
+        assert any("'projects' should be a list" in w for w in warnings)
+    
+    def test_invalid_project_entry(self):
+        """Test warnings for invalid project entries in experience."""
+        data = {
+            "experience": [{
+                "title": "Engineer",
+                "company": "Corp",
+                "projects": [{"title": "Project"}]  # Missing required fields
+            }]
+        }
+        warnings = validate_career_database(data)
+        assert any("missing required fields" in w for w in warnings)
+    
+    def test_invalid_standalone_projects(self):
+        """Test warnings for invalid standalone projects."""
+        data = {
+            "projects": [{
+                "name": "MyProject",
+                "type": "invalid_type",  # Invalid project type
+                "description": "Test",
+                "technologies": ["Python"],
+                "outcomes": ["Success"]
+            }]
+        }
+        warnings = validate_career_database(data)
+        assert any("invalid type" in w for w in warnings)
 
 
 class TestMergeCareerDatabases:
@@ -221,3 +354,63 @@ class TestMergeCareerDatabases:
         assert merged["a"] == 4  # Overridden by db3
         assert merged["b"] == 2
         assert merged["c"] == 3
+
+
+class TestCareerDatabaseParser:
+    """Test CareerDatabaseParser class."""
+    
+    def test_parse_valid_file(self, temp_yaml_file, sample_career_data):
+        """Test parsing a valid career database file."""
+        parser = CareerDatabaseParser()
+        data = parser.parse(temp_yaml_file)
+        
+        assert data == sample_career_data
+        assert len(parser.warnings) == 0
+    
+    def test_get_experience_projects(self, temp_yaml_file):
+        """Test extracting projects from experience entries."""
+        parser = CareerDatabaseParser()
+        parser.parse(temp_yaml_file)
+        
+        projects = parser.get_experience_projects()
+        assert len(projects) == 1
+        assert projects[0]["title"] == "Payment Processing System"
+        assert projects[0]["company"] == "Tech Corp"
+        assert projects[0]["job_title"] == "Senior Software Engineer"
+    
+    def test_get_all_technologies(self, temp_yaml_file):
+        """Test extracting all unique technologies."""
+        parser = CareerDatabaseParser()
+        parser.parse(temp_yaml_file)
+        
+        technologies = parser.get_all_technologies()
+        
+        # Should include technologies from skills, experience, and projects
+        assert "Python" in technologies
+        assert "Kubernetes" in technologies
+        assert "Docker" in technologies
+        assert "Kafka" in technologies  # From nested project
+        assert "GitHub Actions" in technologies  # From standalone project
+        
+        # Should be sorted
+        assert technologies == sorted(technologies)
+    
+    def test_get_achievements_by_role(self, temp_yaml_file):
+        """Test extracting achievements by role."""
+        parser = CareerDatabaseParser()
+        parser.parse(temp_yaml_file)
+        
+        achievements = parser.get_achievements_by_role("Senior Software Engineer")
+        
+        # Should include achievements from both experience and nested projects
+        assert "Reduced latency by 50%" in achievements
+        assert "Processed $10M+ transactions daily" in achievements
+        assert len(achievements) == 6  # 3 from experience + 3 from project
+    
+    def test_empty_data_methods(self):
+        """Test parser methods with empty data."""
+        parser = CareerDatabaseParser()
+        
+        assert parser.get_experience_projects() == []
+        assert parser.get_all_technologies() == []
+        assert parser.get_achievements_by_role("any") == []

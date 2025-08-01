@@ -50,7 +50,6 @@
     },
     "experience": {
       "type": "array",
-      "minItems": 1,
       "items": {
         "type": "object",
         "required": ["title", "company", "duration", "description", "achievements"],
@@ -100,13 +99,98 @@
             "type": "integer",
             "minimum": 1,
             "description": "Size of team managed/worked with"
+          },
+          "reason_for_leaving": {
+            "type": "string",
+            "description": "Reason for leaving the position"
+          },
+          "company_culture_pros": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Positive aspects of company culture"
+          },
+          "company_culture_cons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Negative aspects of company culture"
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["title", "description", "achievements"],
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Project title/name"
+                },
+                "description": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Detailed project description including technologies used"
+                },
+                "achievements": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": "Results and impact (KPIs improved, metrics achieved)"
+                },
+                "role": {
+                  "type": "string",
+                  "description": "Your specific role if it differed from job title"
+                },
+                "technologies": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": "Specific technologies used in this project"
+                },
+                "key_stakeholders": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": "Types of stakeholders involved"
+                },
+                "notable_challenges": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": "Major challenges faced and overcome"
+                },
+                "direct_reports": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Number of direct reports on this project"
+                },
+                "reports_to": {
+                  "type": "string",
+                  "description": "Who you reported to for this project"
+                }
+              }
+            },
+            "description": "Notable projects during this role"
           }
         }
       }
     },
     "education": {
       "type": "array",
-      "minItems": 1,
       "items": {
         "type": "object",
         "required": ["degree", "institution", "year"],
@@ -213,12 +297,17 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "description", "technologies", "outcomes"],
+        "required": ["name", "type", "description", "technologies", "outcomes"],
         "properties": {
           "name": {
             "type": "string",
             "minLength": 1,
             "description": "Project name"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["personal", "open_source", "freelance", "hackathon", "academic", "volunteer"],
+            "description": "Type of project"
           },
           "description": {
             "type": "string",
@@ -255,6 +344,19 @@
             "type": "string",
             "format": "uri",
             "description": "Project URL or repository"
+          },
+          "context": {
+            "type": "string",
+            "description": "Context or motivation for the project"
+          },
+          "team_size": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Size of the project team"
+          },
+          "users": {
+            "type": "string",
+            "description": "Number or description of users/beneficiaries"
           }
         }
       }
