@@ -13,6 +13,7 @@ dependencies: []
 ## Description
 
 Implement utils/database_parser.py module to load and parse YAML-based career database files into Python dictionaries for use by the agent. Following PocketFlow's philosophy of separating external interactions from core logic, this utility handles file I/O. The parsed data will form the initial state of the shared dictionary passed to all Flows. This is a prerequisite setup action, not a Node task.
+
 ## Acceptance Criteria
 
 - [x] utils/database_parser.py file created
@@ -26,7 +27,13 @@ Implement utils/database_parser.py module to load and parse YAML-based career da
 
 ## Implementation Plan
 
-1. Create utils/database_parser.py file\n2. Import PyYAML and implement load_career_database(path) function\n3. Add comprehensive error handling for file operations\n4. Support parsing nested YAML structures for career data\n5. Add type hints for better code clarity\n6. Write unit tests for various scenarios\n7. Document expected YAML structure in docstring
+1. Create utils/database_parser.py file
+2. Import PyYAML and implement load_career_database(path) function
+3. Add comprehensive error handling for file operations
+4. Support parsing nested YAML structures for career data
+5. Add type hints for better code clarity
+6. Write unit tests for various scenarios
+7. Document expected YAML structure in docstring
 
 ## Implementation Notes
 

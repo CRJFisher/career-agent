@@ -12,6 +12,7 @@ dependencies: []
 ## Description
 
 Create a workflow that chains ExperiencePrioritizationNode and NarrativeStrategyNode to generate the complete narrative strategy. This workflow first uses algorithmic scoring to rank all experiences objectively, then applies strategic thinking via LLM to select and craft the narrative. The two-step process ensures both data-driven prioritization and creative storytelling for maximum impact.
+
 ## Acceptance Criteria
 
 - [ ] NarrativeFlow class created in flow.py inheriting from Flow
@@ -31,4 +32,11 @@ Create a workflow that chains ExperiencePrioritizationNode and NarrativeStrategy
 
 ## Implementation Plan
 
-1. Create NarrativeFlow class inheriting from Flow\n2. Initialize both nodes in constructor\n3. Define sequential flow graph\n4. Connect nodes with proper action mappings\n5. Ensure prioritized list passes to strategy node\n6. Make assessment data available for context\n7. Implement run() method for execution\n8. Return final narrative strategy
+1. Create NarrativeFlow class inheriting from Flow
+2. Initialize both nodes in constructor
+3. Define sequential flow graph
+4. Connect nodes with proper action mappings
+5. Ensure prioritized list passes to strategy node
+6. Make assessment data available for context
+7. Implement run() method for execution
+8. Return final narrative strategy

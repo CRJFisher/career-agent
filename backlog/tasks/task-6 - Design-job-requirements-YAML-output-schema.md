@@ -13,6 +13,7 @@ dependencies: []
 ## Description
 
 Define the structured YAML format for extracted job requirements including must-haves, nice-to-haves, hard skills, soft skills, and experiences. This schema is critical for ensuring consistent and machine-readable output from the ExtractRequirementsNode. The format must distinguish between explicitly required items (must-haves) and advantageous but not mandatory items (nice-to-haves), with clear categorization of different requirement types.
+
 ## Acceptance Criteria
 
 - [x] YAML schema for job_requirements defined with all fields
@@ -26,7 +27,14 @@ Define the structured YAML format for extracted job requirements including must-
 
 ## Implementation Plan
 
-1. Define top-level structure: job_requirements with role and company\n2. Create must_haves section with three categories\n3. Define hard_skills as list of technical requirements\n4. Define soft_skills as list of interpersonal requirements\n5. Define experiences as list of background requirements\n6. Create nice_to_haves section with flexible categories\n7. Document example with DeepMind Software Engineer role\n8. Ensure schema is parseable and validates correctly
+1. Define top-level structure: job_requirements with role and company
+2. Create must_haves section with three categories
+3. Define hard_skills as list of technical requirements
+4. Define soft_skills as list of interpersonal requirements
+5. Define experiences as list of background requirements
+6. Create nice_to_haves section with flexible categories
+7. Document example with DeepMind Software Engineer role
+8. Ensure schema is parseable and validates correctly
 
 ## Implementation Notes
 

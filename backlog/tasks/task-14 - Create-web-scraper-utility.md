@@ -12,6 +12,7 @@ dependencies: []
 ## Description
 
 Implement utils/web_scraper.py module that extracts clean readable text from URLs for company research purposes. This utility handles the complexity of parsing HTML, removing navigation/ads, and extracting main content. The agent uses this to read company About pages, blog posts, and news articles. Must handle various content types and website structures robustly.
+
 ## Acceptance Criteria
 
 - [ ] utils/web_scraper.py file created with scraping functionality
@@ -30,4 +31,11 @@ Implement utils/web_scraper.py module that extracts clean readable text from URL
 
 ## Implementation Plan
 
-1. Create utils/web_scraper.py module\n2. Implement scrape_url(url) function\n3. Use BeautifulSoup for HTML parsing\n4. Implement content extraction heuristics\n5. Add timeout and error handling\n6. Support different content types\n7. Add proper user-agent headers\n8. Implement text cleaning and formatting
+1. Create utils/web_scraper.py module
+2. Implement scrape_url(url) function
+3. Use BeautifulSoup for HTML parsing
+4. Implement content extraction heuristics
+5. Add timeout and error handling
+6. Support different content types
+7. Add proper user-agent headers
+8. Implement text cleaning and formatting

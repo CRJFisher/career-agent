@@ -12,6 +12,7 @@ dependencies: []
 ## Description
 
 Create a node that performs holistic evaluation of job fit including technical fit score, cultural fit score, strengths, gaps, and unique value proposition. This single powerful node takes requirement mappings and gaps as input and uses LLM acting as senior hiring manager to perform comprehensive assessment. The unique value proposition is critical - identifying rare and powerful intersections of skills that differentiate the candidate.
+
 ## Acceptance Criteria
 
 - [ ] SuitabilityScoringNode class created following Node lifecycle
@@ -32,4 +33,11 @@ Create a node that performs holistic evaluation of job fit including technical f
 
 ## Implementation Plan
 
-1. Create SuitabilityScoringNode with Node interface\n2. Design comprehensive scoring prompt\n3. Include technical fit calculation methodology\n4. Add cultural fit assessment based on research\n5. Extract strengths from HIGH-scored mappings\n6. Identify critical gaps from analysis\n7. Generate unique value proposition statement\n8. Output complete assessment dictionary
+1. Create SuitabilityScoringNode with Node interface
+2. Design comprehensive scoring prompt
+3. Include technical fit calculation methodology
+4. Add cultural fit assessment based on research
+5. Extract strengths from HIGH-scored mappings
+6. Identify critical gaps from analysis
+7. Generate unique value proposition statement
+8. Output complete assessment dictionary

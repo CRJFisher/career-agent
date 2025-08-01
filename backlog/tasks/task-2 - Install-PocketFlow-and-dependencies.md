@@ -13,6 +13,7 @@ dependencies: []
 ## Description
 
 Install The-Pocket/PocketFlow framework and all required dependencies including PyYAML for YAML parsing and any LLM SDK requirements. PocketFlow is a minimalist framework that avoids bloat and vendor lock-in. The core is just 100 lines modeling LLM apps as directed graphs. Must ensure we're installing from the correct repository (The-Pocket/PocketFlow) which provides Node lifecycle (prep/exec/post), Flow orchestration, and Shared Store patterns.
+
 ## Acceptance Criteria
 
 - [x] The-Pocket/PocketFlow framework installed from correct repository
@@ -26,7 +27,14 @@ Install The-Pocket/PocketFlow framework and all required dependencies including 
 
 ## Implementation Plan
 
-1. Create Python virtual environment\n2. Install PocketFlow from The-Pocket/PocketFlow repository\n3. Install PyYAML for YAML parsing\n4. Install LLM SDK (determine which - OpenAI, Anthropic, etc)\n5. Install requests for web search utility\n6. Install beautifulsoup4 for web scraping\n7. Create requirements.txt with all dependencies\n8. Document installation process
+1. Create Python virtual environment
+2. Install PocketFlow from The-Pocket/PocketFlow repository
+3. Install PyYAML for YAML parsing
+4. Install LLM SDK (determine which - OpenAI, Anthropic, etc)
+5. Install requests for web search utility
+6. Install beautifulsoup4 for web scraping
+7. Create requirements.txt with all dependencies
+8. Document installation process
 
 ## Implementation Notes
 

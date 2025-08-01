@@ -12,6 +12,7 @@ dependencies: []
 ## Description
 
 Define the structured format for company research output including mission, team scope, strategic importance, and culture fields. This YAML template guides the research agent's information gathering and ensures comprehensive company understanding. The template must capture both factual information (mission, team details) and analytical insights (strategic importance, culture). This structured output feeds into later phases for tailored application materials.
+
 ## Acceptance Criteria
 
 - [ ] Company research YAML schema with nested structure defined
@@ -30,4 +31,11 @@ Define the structured format for company research output including mission, team
 
 ## Implementation Plan
 
-1. Define company_research as top-level key\n2. Use company name as nested key for multi-company support\n3. Define mission field for company purpose/goals\n4. Define team_scope for specific team information\n5. Define strategic_importance for role analysis\n6. Define culture for work environment details\n7. Document expected content for each field\n8. Create example with populated research data
+1. Define company_research as top-level key
+2. Use company name as nested key for multi-company support
+3. Define mission field for company purpose/goals
+4. Define team_scope for specific team information
+5. Define strategic_importance for role analysis
+6. Define culture for work environment details
+7. Document expected content for each field
+8. Create example with populated research data

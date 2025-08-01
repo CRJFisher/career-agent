@@ -12,6 +12,7 @@ dependencies: []
 ## Description
 
 Create a node that maps job requirements to personal experiences using RAG pattern to search career database for relevant evidence. This is the first node in the AnalysisFlow and implements a form of Retrieval-Augmented Generation where retrieval (searching the database) provides context to generation (creating the mapping). The node must iterate through each requirement and find all potentially relevant pieces of evidence from professional_experience and projects sections.
+
 ## Acceptance Criteria
 
 - [ ] RequirementMappingNode class created in nodes.py following Node lifecycle
@@ -30,4 +31,11 @@ Create a node that maps job requirements to personal experiences using RAG patte
 
 ## Implementation Plan
 
-1. Create RequirementMappingNode class with PocketFlow Node interface\n2. Implement prep() to load requirements and career database\n3. Design retrieval logic to search career_db for each requirement\n4. Implement keyword matching across experience descriptions\n5. Search both professional_experience and projects for evidence\n6. Create mapping structure: {requirement: [evidence_list]}\n7. Implement post() to save raw mapping to shared store\n8. Return 'continue' action for flow progression
+1. Create RequirementMappingNode class with PocketFlow Node interface
+2. Implement prep() to load requirements and career database
+3. Design retrieval logic to search career_db for each requirement
+4. Implement keyword matching across experience descriptions
+5. Search both professional_experience and projects for evidence
+6. Create mapping structure: {requirement: [evidence_list]}
+7. Implement post() to save raw mapping to shared store
+8. Return 'continue' action for flow progression

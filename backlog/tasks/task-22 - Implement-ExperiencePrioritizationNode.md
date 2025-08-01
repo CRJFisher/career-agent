@@ -12,6 +12,7 @@ dependencies: []
 ## Description
 
 Create a pure Python node that scores and ranks all career experiences using weighted criteria. This node does NOT require LLM - it implements the user's explicit scoring framework with weights: relevance_to_role (40%), recency (20%), impact (20%), uniqueness (10%), growth (10%). The node iterates through every item in career_db and produces a ranked list that guides narrative prioritization. This algorithmic approach ensures consistent, explainable prioritization.
+
 ## Acceptance Criteria
 
 - [ ] ExperiencePrioritizationNode class created with pure Python logic
@@ -32,4 +33,11 @@ Create a pure Python node that scores and ranks all career experiences using wei
 
 ## Implementation Plan
 
-1. Create ExperiencePrioritizationNode class\n2. Implement prep() to load career_db and requirements\n3. Define scoring functions for each criterion\n4. Implement relevance scoring against job requirements\n5. Calculate recency score based on dates\n6. Extract impact score from quantified achievements\n7. Assess uniqueness and growth demonstration\n8. Sort experiences by composite score
+1. Create ExperiencePrioritizationNode class
+2. Implement prep() to load career_db and requirements
+3. Define scoring functions for each criterion
+4. Implement relevance scoring against job requirements
+5. Calculate recency score based on dates
+6. Extract impact score from quantified achievements
+7. Assess uniqueness and growth demonstration
+8. Sort experiences by composite score

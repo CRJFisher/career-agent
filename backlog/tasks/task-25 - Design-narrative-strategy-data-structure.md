@@ -12,6 +12,7 @@ dependencies: []
 ## Description
 
 Define the structure for the narrative strategy output including career arc, key messages, must-tell experiences, differentiators, and evidence stories. This data structure serves as the blueprint for material generation, containing both strategic decisions (which experiences to highlight) and tactical content (specific stories and messages). The structure must support the 5-part cover letter format and guide CV generation.
+
 ## Acceptance Criteria
 
 - [ ] Narrative strategy schema with all components defined
@@ -31,4 +32,11 @@ Define the structure for the narrative strategy output including career arc, key
 
 ## Implementation Plan
 
-1. Define top-level narrative_strategy structure\n2. Create career_arc object with three time phases\n3. Define key_messages as array of strings\n4. Structure must_tell_experiences with experience and reason\n5. Structure differentiators with uniqueness explanation\n6. Define evidence_stories with challenge/action/result\n7. Document how each component maps to materials\n8. Create comprehensive example
+1. Define top-level narrative_strategy structure
+2. Create career_arc object with three time phases
+3. Define key_messages as array of strings
+4. Structure must_tell_experiences with experience and reason
+5. Structure differentiators with uniqueness explanation
+6. Define evidence_stories with challenge/action/result
+7. Document how each component maps to materials
+8. Create comprehensive example

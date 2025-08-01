@@ -31,4 +31,11 @@ Create a node that identifies gaps in must-have requirements and generates mitig
 
 ## Implementation Plan
 
-1. Create GapAnalysisNode class with Node interface\n2. Implement prep() to load assessed mappings and requirements\n3. Identify gaps: must-haves with LOW strength or missing evidence\n4. Design mitigation prompt template\n5. For each gap, call LLM to generate mitigation strategy\n6. Focus on transferable skills and growth potential\n7. Save final mapping to shared store\n8. Save gaps list with mitigation strategies
+1. Create GapAnalysisNode class with Node interface
+2. Implement prep() to load assessed mappings and requirements
+3. Identify gaps: must-haves with LOW strength or missing evidence
+4. Design mitigation prompt template
+5. For each gap, call LLM to generate mitigation strategy
+6. Focus on transferable skills and growth potential
+7. Save final mapping to shared store
+8. Save gaps list with mitigation strategies

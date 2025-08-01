@@ -12,6 +12,7 @@ dependencies: []
 ## Description
 
 Create the LLM prompt for the SuitabilityScoringNode that acts as a senior hiring manager to evaluate fit and generate unique value proposition. The prompt must guide the LLM to perform multiple assessment tasks in one call: calculate technical fit, assess cultural alignment, identify strengths and gaps, and most importantly formulate a unique value proposition by finding rare skill intersections (e.g., 'full-stack engineer with patented ML experience and proven track record of building user-loved developer tools').
+
 ## Acceptance Criteria
 
 - [ ] Senior hiring manager role definition in prompt
@@ -30,4 +31,11 @@ Create the LLM prompt for the SuitabilityScoringNode that acts as a senior hirin
 
 ## Implementation Plan
 
-1. Define role: 'You are a senior hiring manager evaluating a candidate'\n2. Explain technical fit scoring based on requirements met\n3. Add weighting system for must-haves vs nice-to-haves\n4. Include cultural fit assessment methodology\n5. Provide framework for strength identification\n6. Add guidelines for gap significance\n7. Emphasize unique value proposition creation\n8. Include example output format
+1. Define role: 'You are a senior hiring manager evaluating a candidate'
+2. Explain technical fit scoring based on requirements met
+3. Add weighting system for must-haves vs nice-to-haves
+4. Include cultural fit assessment methodology
+5. Provide framework for strength identification
+6. Add guidelines for gap significance
+7. Emphasize unique value proposition creation
+8. Include example output format

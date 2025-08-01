@@ -12,6 +12,7 @@ dependencies: []
 ## Description
 
 Create a workflow containing CVGenerationNode and CoverLetterNode to produce final application materials. This is the final generative phase that transforms all strategic decisions into tangible deliverables. The workflow can run both nodes in parallel since they draw from the same inputs (narrative strategy, assessment, research) but produce independent outputs. This represents the culmination of the entire agent pipeline.
+
 ## Acceptance Criteria
 
 - [ ] GenerationFlow class created in flow.py inheriting from Flow
@@ -32,4 +33,11 @@ Create a workflow containing CVGenerationNode and CoverLetterNode to produce fin
 
 ## Implementation Plan
 
-1. Create GenerationFlow class inheriting from Flow\n2. Initialize both generation nodes\n3. Design parallel execution graph if possible\n4. Ensure all inputs available to both nodes\n5. Implement run() method for execution\n6. Handle generation errors gracefully\n7. Validate output formats\n8. Return completed materials
+1. Create GenerationFlow class inheriting from Flow
+2. Initialize both generation nodes
+3. Design parallel execution graph if possible
+4. Ensure all inputs available to both nodes
+5. Implement run() method for execution
+6. Handle generation errors gracefully
+7. Validate output formats
+8. Return completed materials

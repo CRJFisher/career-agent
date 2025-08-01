@@ -12,6 +12,7 @@ dependencies: []
 ## Description
 
 Create a node that evaluates the strength of requirement-to-evidence mappings using LLM to assign HIGH, MEDIUM, or LOW scores. This node performs qualitative synthesis by analyzing how well each piece of evidence demonstrates the required skill. HIGH means direct and powerful demonstration, MEDIUM shows related experience, LOW indicates weak or indirect link. This assessment is crucial for identifying gaps and prioritizing experiences.
+
 ## Acceptance Criteria
 
 - [ ] StrengthAssessmentNode class created following Node lifecycle
@@ -30,4 +31,11 @@ Create a node that evaluates the strength of requirement-to-evidence mappings us
 
 ## Implementation Plan
 
-1. Create StrengthAssessmentNode class inheriting from Node\n2. Implement prep() to read raw requirement mappings\n3. Design LLM prompt for strength assessment\n4. Include scoring criteria in prompt (HIGH/MEDIUM/LOW definitions)\n5. Iterate through each requirement-evidence pair\n6. Call LLM to assess match strength\n7. Update mapping structure with strength scores\n8. Save assessed mapping to shared store in post()
+1. Create StrengthAssessmentNode class inheriting from Node
+2. Implement prep() to read raw requirement mappings
+3. Design LLM prompt for strength assessment
+4. Include scoring criteria in prompt (HIGH/MEDIUM/LOW definitions)
+5. Iterate through each requirement-evidence pair
+6. Call LLM to assess match strength
+7. Update mapping structure with strength scores
+8. Save assessed mapping to shared store in post()

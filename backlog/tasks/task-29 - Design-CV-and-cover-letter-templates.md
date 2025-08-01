@@ -12,6 +12,7 @@ dependencies: []
 ## Description
 
 Create professional templates and formatting guidelines for the generated CV and cover letter documents. The CV uses GitHub-flavored Markdown for rich formatting including headers, lists, bold/italic text, and links. The cover letter uses plain text with clear paragraph structure. Both templates must be ATS-friendly while maintaining visual appeal. Templates guide the generation nodes to produce consistent, professional output.
+
 ## Acceptance Criteria
 
 - [ ] CV Markdown template with section headers defined
@@ -31,4 +32,11 @@ Create professional templates and formatting guidelines for the generated CV and
 
 ## Implementation Plan
 
-1. Design CV template structure with main sections\n2. Define formatting for experience entries\n3. Create skills section with categories\n4. Add education/certification formatting\n5. Design cover letter header format\n6. Structure 5-part cover letter body\n7. Ensure ATS compatibility throughout\n8. Document formatting guidelines
+1. Design CV template structure with main sections
+2. Define formatting for experience entries
+3. Create skills section with categories
+4. Add education/certification formatting
+5. Design cover letter header format
+6. Structure 5-part cover letter body
+7. Ensure ATS compatibility throughout
+8. Document formatting guidelines

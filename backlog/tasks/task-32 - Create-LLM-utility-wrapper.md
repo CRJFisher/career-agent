@@ -12,6 +12,7 @@ dependencies: []
 ## Description
 
 Implement a utility module for LLM interactions that handles API calls, error handling, and response parsing for all nodes. This centralizes LLM logic following PocketFlow's separation of concerns. The wrapper supports multiple providers (OpenAI, Anthropic, etc.), implements retry logic, handles rate limiting, and provides consistent interface for all nodes. This is critical infrastructure that all LLM-using nodes depend on.
+
 ## Acceptance Criteria
 
 - [ ] utils/llm_wrapper.py created with provider abstraction
@@ -32,7 +33,14 @@ Implement a utility module for LLM interactions that handles API calls, error ha
 
 ## Implementation Plan
 
-1. Create utils/llm_wrapper.py module\n2. Design provider abstraction interface\n3. Implement call_llm() with standard parameters\n4. Add provider-specific implementations\n5. Implement retry logic and backoff\n6. Add rate limiting controls\n7. Create response parsing utilities\n8. Support environment configuration
+1. Create utils/llm_wrapper.py module
+2. Design provider abstraction interface
+3. Implement call_llm() with standard parameters
+4. Add provider-specific implementations
+5. Implement retry logic and backoff
+6. Add rate limiting controls
+7. Create response parsing utilities
+8. Support environment configuration
 
 ## Implementation Notes (Partial)
 

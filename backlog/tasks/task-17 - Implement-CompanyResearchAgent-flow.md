@@ -12,6 +12,7 @@ dependencies: []
 ## Description
 
 Create the looping agent flow that orchestrates company research using DecideActionNode and tool nodes until research is complete. This implements the canonical agentic loop from PocketFlow documentation where a central decision node directs traffic to tool nodes and loops back for re-evaluation. The agent iterates until DecideActionNode returns 'finish' action, gradually populating the company_research template with mission, team_scope, strategic_importance, and culture information.
+
 ## Acceptance Criteria
 
 - [ ] CompanyResearchAgent flow created inheriting from Flow
@@ -31,4 +32,11 @@ Create the looping agent flow that orchestrates company research using DecideAct
 
 ## Implementation Plan
 
-1. Create CompanyResearchAgent class in flow.py\n2. Initialize DecideActionNode and all tool nodes\n3. Define cyclic flow graph with DecideNode as hub\n4. Map actions: 'search'->WebSearchNode, 'read'->ReadContentNode\n5. Map 'synthesize'->SynthesizeInfoNode, 'finish'->end\n6. All tool nodes return to DecideActionNode\n7. Implement iteration counter for safety\n8. Return completed research in shared store
+1. Create CompanyResearchAgent class in flow.py
+2. Initialize DecideActionNode and all tool nodes
+3. Define cyclic flow graph with DecideNode as hub
+4. Map actions: 'search'->WebSearchNode, 'read'->ReadContentNode
+5. Map 'synthesize'->SynthesizeInfoNode, 'finish'->end
+6. All tool nodes return to DecideActionNode
+7. Implement iteration counter for safety
+8. Return completed research in shared store

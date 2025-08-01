@@ -13,6 +13,7 @@ dependencies: []
 ## Description
 
 Create a PocketFlow Flow that orchestrates the requirements extraction process using the ExtractRequirementsNode. This is a simple single-node Flow designed for one specific task: extraction. The Flow follows PocketFlow's directed graph pattern where nodes are connected and return action strings to determine flow progression.
+
 ## Acceptance Criteria
 
 - [x] RequirementExtractionFlow class created in flow.py
@@ -26,7 +27,14 @@ Create a PocketFlow Flow that orchestrates the requirements extraction process u
 
 ## Implementation Plan
 
-1. Create RequirementExtractionFlow class in flow.py\n2. Initialize flow with ExtractRequirementsNode instance\n3. Define flow graph: start -> ExtractRequirementsNode -> end\n4. Configure action mappings for node transitions\n5. Implement run() method to execute the flow\n6. Handle errors and failed extractions gracefully\n7. Ensure shared store is properly updated\n8. Return final state with extracted requirements
+1. Create RequirementExtractionFlow class in flow.py
+2. Initialize flow with ExtractRequirementsNode instance
+3. Define flow graph: start -> ExtractRequirementsNode -> end
+4. Configure action mappings for node transitions
+5. Implement run() method to execute the flow
+6. Handle errors and failed extractions gracefully
+7. Ensure shared store is properly updated
+8. Return final state with extracted requirements
 
 ## Implementation Notes
 

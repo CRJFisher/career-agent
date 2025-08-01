@@ -12,6 +12,7 @@ dependencies: []
 ## Description
 
 Create a workflow that chains RequirementMappingNode, StrengthAssessmentNode, and GapAnalysisNode in sequence for complete requirement analysis. This linear multi-step process is a canonical use case for PocketFlow Workflow pattern. The flow executes three distinct analytical steps: mapping requirements to experiences, assessing mapping strength, and identifying/mitigating gaps. Output serves as foundation for suitability assessment.
+
 ## Acceptance Criteria
 
 - [ ] AnalysisFlow class created in flow.py
@@ -31,4 +32,11 @@ Create a workflow that chains RequirementMappingNode, StrengthAssessmentNode, an
 
 ## Implementation Plan
 
-1. Create AnalysisFlow class inheriting from Flow\n2. Initialize three nodes in constructor\n3. Define flow graph with sequential connections\n4. Map action strings: each node returns 'continue' except last\n5. Implement run() method for flow execution\n6. Ensure data passes correctly between nodes\n7. Add error handling and logging\n8. Return final state with complete analysis
+1. Create AnalysisFlow class inheriting from Flow
+2. Initialize three nodes in constructor
+3. Define flow graph with sequential connections
+4. Map action strings: each node returns 'continue' except last
+5. Implement run() method for flow execution
+6. Ensure data passes correctly between nodes
+7. Add error handling and logging
+8. Return final state with complete analysis

@@ -1,5 +1,10 @@
 # Developer Quick Reference Guide
 
+## Information architecture
+
+- `docs` - contains the documentation for the project - these are "timeless" and give an overview of the current state of the project
+- `backlog` - contains the tasks for the project - these are the "diffs" we will or have made
+  
 ## Getting Started
 
 ### Setup

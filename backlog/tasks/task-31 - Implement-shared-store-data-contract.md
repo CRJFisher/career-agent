@@ -12,6 +12,7 @@ dependencies: []
 ## Description
 
 Define and document the complete data contract for the shared store including all keys, data types, and flow dependencies. The shared store is the central nervous system enabling communication between all phases. This contract defines the API between components, ensuring modularity and debuggability. Document includes comprehensive table mapping each key to its producer and consumer flows, serving as the single source of truth for data dependencies.
+
 ## Acceptance Criteria
 
 - [ ] Complete data contract documentation created
@@ -31,4 +32,11 @@ Define and document the complete data contract for the shared store including al
 
 ## Implementation Plan
 
-1. Create data contract documentation file\n2. Define table structure with four columns\n3. Document career_db: dict from Initial Setup\n4. Document job_spec_text through cover_letter_text\n5. Map producer flows for each key\n6. Map consumer flows showing usage\n7. Add validation helper functions\n8. Include contract in design documentation
+1. Create data contract documentation file
+2. Define table structure with four columns
+3. Document career_db: dict from Initial Setup
+4. Document job_spec_text through cover_letter_text
+5. Map producer flows for each key
+6. Map consumer flows showing usage
+7. Add validation helper functions
+8. Include contract in design documentation

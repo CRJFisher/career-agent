@@ -12,6 +12,7 @@ dependencies: []
 ## Description
 
 Create the main.py file that orchestrates all flows in sequence, manages the shared store, and handles input/output operations. This is the master orchestrator that chains together all phases: loading career database, extracting requirements, analyzing fit, researching company, assessing suitability, developing narrative, and generating materials. The main.py follows the pattern shown in the document with proper shared store initialization containing all required keys.
+
 ## Acceptance Criteria
 
 - [ ] main.py created with proper entry point and imports
@@ -33,4 +34,11 @@ Create the main.py file that orchestrates all flows in sequence, manages the sha
 
 ## Implementation Plan
 
-1. Create main.py with if __name__ == '__main__' block\n2. Import all flows and utilities\n3. Initialize shared store dictionary with all keys\n4. Load career database using parser utility\n5. Load job specification text\n6. Instantiate all flows in sequence\n7. Execute flows passing shared store\n8. Export final materials to files
+1. Create main.py with if __name__ == '__main__' block
+2. Import all flows and utilities
+3. Initialize shared store dictionary with all keys
+4. Load career database using parser utility
+5. Load job specification text
+6. Instantiate all flows in sequence
+7. Execute flows passing shared store
+8. Export final materials to files

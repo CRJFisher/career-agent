@@ -13,6 +13,7 @@ dependencies: []
 ## Description
 
 Initialize the project with the correct PocketFlow framework structure including docs/design.md, utils/, nodes.py, flow.py, and main.py as recommended in the PocketFlow documentation. This follows the minimalist 100-line LLM orchestration framework philosophy of The-Pocket/PocketFlow (NOT Tencent/PocketFlow or Saoge123/PocketFlow). The framework models all LLM applications as a directed graph with three core concepts: Nodes (discrete units of work), Flow (directed graph connecting nodes), and Shared Store (common data repository).
+
 ## Acceptance Criteria
 
 - [x] Project directory structure created following PocketFlow conventions
@@ -24,7 +25,13 @@ Initialize the project with the correct PocketFlow framework structure including
 
 ## Implementation Plan
 
-1. Create project root directory structure\n2. Initialize Python project with pyproject.toml or setup.py\n3. Create core PocketFlow files: nodes.py, flow.py, main.py\n4. Create utils/ directory for utilities\n5. Create docs/ directory with design.md template\n6. Add README.md explaining this uses The-Pocket/PocketFlow framework\n7. Set up .gitignore for Python projects
+1. Create project root directory structure
+2. Initialize Python project with pyproject.toml or setup.py
+3. Create core PocketFlow files: nodes.py, flow.py, main.py
+4. Create utils/ directory for utilities
+5. Create docs/ directory with design.md template
+6. Add README.md explaining this uses The-Pocket/PocketFlow framework
+7. Set up .gitignore for Python projects
 
 ## Implementation Notes
 
