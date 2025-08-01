@@ -41,7 +41,7 @@ Central data store containing:
 
 ## Data Flow
 
-```
+```txt
 Job Description → RequirementExtractionFlow → Structured Requirements
                                                         ↓
 Career Database → AnalysisFlow → Strengths/Gaps Analysis

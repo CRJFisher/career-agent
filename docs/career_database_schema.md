@@ -36,7 +36,6 @@ personal_info:
   linkedin: string          # Optional: LinkedIn profile URL
   github: string            # Optional: GitHub profile URL
   website: string           # Optional: Personal website URL
-  summary: string           # Optional: Professional summary
 ```
 
 ### experience (Required)
@@ -55,6 +54,25 @@ experience:
     technologies:           # Optional: Technologies used
       - string
     team_size: number       # Optional: Size of team managed/worked with
+    reason_for_leaving: string  # Optional: Why you left this position
+    company_culture_pros:   # Optional: Positive aspects of company culture
+      - string
+    company_culture_cons:   # Optional: Challenging aspects of company culture
+      - string
+    projects:               # Optional: Notable projects during this role
+      - title: string       # Required: Project title/name
+        description: string # Required: Detailed project description including technologies used
+        achievements:       # Required: Results and impact (KPIs improved, metrics achieved)
+          - string
+        role: string        # Optional: Your specific role if it differed from job title
+        technologies:       # Optional: Specific technologies used in this project
+          - string
+        key_stakeholders:   # Optional: Types of stakeholders involved
+          - string
+        notable_challenges: # Optional: Major challenges faced and overcome
+          - string
+        direct_reports: number  # Optional: Number of direct reports on this project
+        reports_to: string      # Optional: Who you reported to for this project
 ```
 
 ### education (Required)
@@ -78,29 +96,39 @@ education:
 
 Categorized skills inventory.
 
+**Note**: This section is intentionally denormalized. Skills listed here should be a comprehensive union of:
+
+- Technologies used in work experience
+- Technologies from personal projects
+- Skills acquired through education/certifications
+- Additional skills not mentioned elsewhere
+
+This redundancy helps LLM parsers quickly identify all capabilities without traversing the entire document.
+
 ```yaml
 skills:
-  technical:                # Required: Technical skills
+  technical:                # Required: Technical skills (programming languages, databases, etc.)
     - string
-  soft:                     # Optional: Soft skills
+  soft:                     # Optional: Soft skills (leadership, communication, etc.)
     - string
   languages:                # Optional: Spoken languages
     - string
-  tools:                    # Optional: Software tools
+  tools:                    # Optional: Software tools (IDEs, design tools, etc.)
     - string
   frameworks:               # Optional: Frameworks and libraries
     - string
-  methodologies:            # Optional: Work methodologies
+  methodologies:            # Optional: Work methodologies (Agile, Scrum, etc.)
     - string
 ```
 
 ### projects (Optional)
 
-Notable projects demonstrating skills and impact.
+Notable personal, open source, freelance, or side projects outside of primary employment.
 
 ```yaml
 projects:
   - name: string            # Required: Project name
+    type: string            # Required: Type (personal, open_source, freelance, hackathon, academic, volunteer)
     description: string     # Required: Project description
     role: string            # Optional: Your role in the project
     duration: string        # Optional: Project duration
@@ -109,6 +137,9 @@ projects:
     outcomes:               # Required: Quantified outcomes/impact
       - string
     url: string             # Optional: Project URL or repository
+    context: string         # Optional: Context (e.g., "Built to solve X problem", "Contract for Y client")
+    team_size: number       # Optional: Number of collaborators
+    users: string           # Optional: User base or audience (e.g., "500+ GitHub stars", "10K monthly users")
 ```
 
 ### certifications (Optional)
@@ -156,7 +187,7 @@ awards:
 
 1. **Required Sections**: `personal_info`, `experience`, `education`, `skills` must be present
 2. **Required Fields**: Fields marked as "Required" must have non-empty values
-3. **Date Formats**: 
+3. **Date Formats**:
    - Years: YYYY format (e.g., "2023")
    - Durations: "YYYY-YYYY" or "Mon YYYY - Mon YYYY" format
    - Use "Present" for current positions
@@ -180,7 +211,3 @@ awards:
 4. **Chronological Order**: List experiences and education from most recent to oldest
 
 5. **Relevance**: Include all experiences but focus details on relevant ones
-
-## Example
-
-See `examples/career_database_example.yaml` for a complete example following this schema.
