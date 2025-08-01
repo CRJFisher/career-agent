@@ -11,7 +11,7 @@ All nodes extend PocketFlow's base Node class and implement:
 - post(shared, prep_res, exec_res): Write results and return action
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Tuple
 import logging
 from pocketflow import Node, BatchNode
 from utils.llm_wrapper import get_default_llm_wrapper
@@ -69,10 +69,10 @@ class ExtractRequirementsNode(Node):
 
 class RequirementMappingNode(Node):
     """
-    Maps job requirements to candidate's experience from career database.
+    Maps job requirements to candidate's experience using RAG pattern.
     
-    Creates a detailed mapping showing how the candidate's experience
-    aligns with each requirement.
+    Implements a retrieval-augmented approach where it searches the career
+    database for relevant evidence that maps to each job requirement.
     """
     
     def __init__(self):
@@ -81,6 +81,8 @@ class RequirementMappingNode(Node):
     
     def prep(self, shared: Dict[str, Any]) -> tuple:
         """Get requirements and career database."""
+        # Note: The task expects 'job_requirements_structured' but we're using 'requirements'
+        # This is more consistent with our refactored code
         requirements = shared.get("requirements", {})
         career_db = shared.get("career_database", {})
         
@@ -92,20 +94,207 @@ class RequirementMappingNode(Node):
         return requirements, career_db
     
     def exec(self, inputs: tuple) -> Dict[str, Any]:
-        """Map requirements to experience."""
+        """Map requirements to experience using keyword matching."""
         requirements, career_db = inputs
         
-        # Implementation would analyze career_db against requirements
-        # For now, returning placeholder
+        # Initialize mapping structure
+        requirement_mapping_raw = {}
+        
+        # Extract all searchable text from career database
+        searchable_content = self._extract_searchable_content(career_db)
+        
+        # Map each requirement category
+        for req_category, req_items in requirements.items():
+            if isinstance(req_items, list):
+                # For list items (skills, etc.), search for each item
+                requirement_mapping_raw[req_category] = {}
+                for item in req_items:
+                    evidence = self._search_for_evidence(
+                        str(item), 
+                        searchable_content
+                    )
+                    if evidence:
+                        requirement_mapping_raw[req_category][item] = evidence
+            elif isinstance(req_items, dict):
+                # For nested structures, process recursively
+                requirement_mapping_raw[req_category] = {}
+                for key, value in req_items.items():
+                    evidence = self._search_for_evidence(
+                        f"{key} {value}", 
+                        searchable_content
+                    )
+                    if evidence:
+                        requirement_mapping_raw[req_category][key] = evidence
+            else:
+                # For single values, search directly
+                evidence = self._search_for_evidence(
+                    str(req_items), 
+                    searchable_content
+                )
+                if evidence:
+                    requirement_mapping_raw[req_category] = evidence
+        
+        # Calculate coverage score
+        total_requirements = self._count_requirements(requirements)
+        mapped_requirements = self._count_mapped_requirements(requirement_mapping_raw)
+        coverage_score = mapped_requirements / total_requirements if total_requirements > 0 else 0.0
+        
         return {
-            "mappings": [],
-            "coverage_score": 0.0
+            "requirement_mapping_raw": requirement_mapping_raw,
+            "coverage_score": coverage_score,
+            "total_requirements": total_requirements,
+            "mapped_requirements": mapped_requirements
         }
     
     def post(self, shared: Dict[str, Any], prep_res: tuple, exec_res: Dict[str, Any]) -> Optional[str]:
-        """Store requirement mappings."""
-        shared["requirement_mapping"] = exec_res
+        """Store requirement mappings in shared store."""
+        shared["requirement_mapping_raw"] = exec_res["requirement_mapping_raw"]
+        shared["coverage_score"] = exec_res["coverage_score"]
+        
+        logger.info(f"Mapped {exec_res['mapped_requirements']} out of {exec_res['total_requirements']} requirements")
+        logger.info(f"Coverage score: {exec_res['coverage_score']:.2%}")
+        
         return "default"
+    
+    def _extract_searchable_content(self, career_db: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Extract all searchable content from career database."""
+        searchable_content = []
+        
+        # Extract from experience section
+        if "experience" in career_db:
+            for exp in career_db["experience"]:
+                content = {
+                    "type": "experience",
+                    "title": exp.get("title", ""),
+                    "company": exp.get("company", ""),
+                    "text": " ".join([
+                        exp.get("title", ""),
+                        exp.get("company", ""),
+                        exp.get("description", ""),
+                        " ".join(exp.get("achievements", [])),
+                        " ".join(exp.get("technologies", []))
+                    ]),
+                    "source": exp
+                }
+                searchable_content.append(content)
+                
+                # Also extract from nested projects
+                if "projects" in exp:
+                    for proj in exp["projects"]:
+                        proj_content = {
+                            "type": "experience_project",
+                            "title": proj.get("title", ""),
+                            "parent_role": exp.get("title", ""),
+                            "text": " ".join([
+                                proj.get("title", ""),
+                                proj.get("description", ""),
+                                " ".join(proj.get("achievements", [])),
+                                " ".join(proj.get("technologies", []))
+                            ]),
+                            "source": proj
+                        }
+                        searchable_content.append(proj_content)
+        
+        # Extract from projects section
+        if "projects" in career_db:
+            for proj in career_db["projects"]:
+                content = {
+                    "type": "project",
+                    "title": proj.get("name", ""),
+                    "text": " ".join([
+                        proj.get("name", ""),
+                        proj.get("description", ""),
+                        " ".join(proj.get("outcomes", [])),
+                        " ".join(proj.get("technologies", []))
+                    ]),
+                    "source": proj
+                }
+                searchable_content.append(content)
+        
+        # Extract from skills
+        if "skills" in career_db:
+            skills = career_db["skills"]
+            all_skills = []
+            for category, items in skills.items():
+                if isinstance(items, list):
+                    all_skills.extend(items)
+            
+            if all_skills:
+                content = {
+                    "type": "skills",
+                    "title": "Skills",
+                    "text": " ".join(all_skills),
+                    "source": skills
+                }
+                searchable_content.append(content)
+        
+        return searchable_content
+    
+    def _search_for_evidence(self, requirement: str, searchable_content: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Search for evidence matching a requirement using keyword matching."""
+        evidence = []
+        
+        # Convert requirement to lowercase for case-insensitive matching
+        req_lower = requirement.lower()
+        req_words = set(req_lower.split())
+        
+        for content in searchable_content:
+            text_lower = content["text"].lower()
+            
+            # Check for exact phrase match
+            if req_lower in text_lower:
+                evidence.append({
+                    "type": content["type"],
+                    "title": content["title"],
+                    "match_type": "exact",
+                    "source": content["source"]
+                })
+                continue
+            
+            # Check for word-based matching
+            text_words = set(text_lower.split())
+            common_words = req_words.intersection(text_words)
+            
+            if len(common_words) >= len(req_words) * 0.5:  # At least 50% word match
+                evidence.append({
+                    "type": content["type"],
+                    "title": content["title"],
+                    "match_type": "partial",
+                    "match_score": len(common_words) / len(req_words),
+                    "source": content["source"]
+                })
+        
+        # Sort by match quality (exact matches first, then by match score)
+        evidence.sort(key=lambda x: (
+            0 if x["match_type"] == "exact" else 1,
+            -x.get("match_score", 0)
+        ))
+        
+        return evidence[:5]  # Return top 5 matches
+    
+    def _count_requirements(self, requirements: Dict[str, Any]) -> int:
+        """Count total number of requirements."""
+        count = 0
+        for value in requirements.values():
+            if isinstance(value, list):
+                count += len(value)
+            elif isinstance(value, dict):
+                count += len(value)
+            else:
+                count += 1
+        return count
+    
+    def _count_mapped_requirements(self, mapping: Dict[str, Any]) -> int:
+        """Count number of successfully mapped requirements."""
+        count = 0
+        for value in mapping.values():
+            if isinstance(value, dict):
+                count += len([v for v in value.values() if v])
+            elif isinstance(value, list) and value:
+                count += 1
+            elif value:
+                count += 1
+        return count
 
 
 # Document Processing Nodes
