@@ -1,124 +1,85 @@
 """
-LLM utility wrapper for unified API interactions.
+LLM utility wrapper using OpenRouter for unified API access.
 
-Provides a consistent interface for LLM calls across different providers.
-Handles retries, rate limiting, and error management.
+OpenRouter provides access to multiple LLM providers through a single API key
+using the OpenAI format. This simplifies our implementation significantly.
 """
 
 import os
 import json
-import time
 import logging
 from typing import Dict, Any, Optional, List, Union
-from abc import ABC, abstractmethod
-import openai
-import anthropic
-from tenacity import retry, stop_after_attempt, wait_exponential
+from openai import OpenAI
+import yaml
 
 logger = logging.getLogger(__name__)
 
 
-class LLMProvider(ABC):
-    """Abstract base class for LLM providers."""
-    
-    @abstractmethod
-    async def call(self, messages: List[Dict[str, str]], **kwargs) -> str:
-        """Make an LLM API call."""
-        pass
-
-
-class OpenAIProvider(LLMProvider):
-    """OpenAI API provider implementation."""
-    
-    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-4"):
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
-            raise ValueError("OpenAI API key not provided or found in environment")
-        self.client = openai.AsyncOpenAI(api_key=self.api_key)
-        self.model = model
-    
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-    async def call(self, messages: List[Dict[str, str]], **kwargs) -> str:
-        """Call OpenAI API with retry logic."""
-        try:
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=kwargs.get("temperature", 0.7),
-                max_tokens=kwargs.get("max_tokens", 2000),
-                **{k: v for k, v in kwargs.items() if k not in ["temperature", "max_tokens"]}
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            logger.error(f"OpenAI API error: {e}")
-            raise
-
-
-class AnthropicProvider(LLMProvider):
-    """Anthropic API provider implementation."""
-    
-    def __init__(self, api_key: Optional[str] = None, model: str = "claude-3-opus-20240229"):
-        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
-        if not self.api_key:
-            raise ValueError("Anthropic API key not provided or found in environment")
-        self.client = anthropic.AsyncAnthropic(api_key=self.api_key)
-        self.model = model
-    
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-    async def call(self, messages: List[Dict[str, str]], **kwargs) -> str:
-        """Call Anthropic API with retry logic."""
-        try:
-            # Convert OpenAI format to Anthropic format
-            system_message = None
-            user_messages = []
-            
-            for msg in messages:
-                if msg["role"] == "system":
-                    system_message = msg["content"]
-                else:
-                    user_messages.append({
-                        "role": msg["role"],
-                        "content": msg["content"]
-                    })
-            
-            response = await self.client.messages.create(
-                model=self.model,
-                system=system_message,
-                messages=user_messages,
-                max_tokens=kwargs.get("max_tokens", 2000),
-                temperature=kwargs.get("temperature", 0.7),
-                **{k: v for k, v in kwargs.items() if k not in ["temperature", "max_tokens"]}
-            )
-            return response.content[0].text
-        except Exception as e:
-            logger.error(f"Anthropic API error: {e}")
-            raise
-
-
 class LLMWrapper:
-    """Unified LLM wrapper supporting multiple providers."""
+    """LLM wrapper using OpenRouter for unified access to multiple providers."""
     
-    def __init__(self, provider: str = "openai", **kwargs):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        base_url: str = "https://openrouter.ai/api/v1",
+        default_model: str = "anthropic/claude-3-opus-20240229",
+        app_name: Optional[str] = None
+    ):
         """
-        Initialize LLM wrapper with specified provider.
+        Initialize LLM wrapper with OpenRouter.
         
         Args:
-            provider: Provider name ("openai" or "anthropic")
-            **kwargs: Provider-specific configuration
+            api_key: OpenRouter API key (or set OPENROUTER_API_KEY env var)
+            base_url: OpenRouter API base URL
+            default_model: Default model to use
+            app_name: Optional app name for OpenRouter analytics
         """
-        self.provider_name = provider
+        self.api_key = api_key or os.getenv("OPENROUTER_API_KEY")
+        if not self.api_key:
+            raise ValueError("OpenRouter API key not provided or found in environment")
         
-        if provider == "openai":
-            self.provider = OpenAIProvider(**kwargs)
-        elif provider == "anthropic":
-            self.provider = AnthropicProvider(**kwargs)
-        else:
-            raise ValueError(f"Unsupported provider: {provider}")
+        # Initialize OpenAI client with OpenRouter endpoint
+        self.client = OpenAI(
+            base_url=base_url,
+            api_key=self.api_key,
+            default_headers={
+                "HTTP-Referer": app_name or "career-application-agent",
+                "X-Title": app_name or "Career Application Agent"
+            } if app_name else None
+        )
+        
+        self.default_model = default_model
+        
+        # Common model mappings for convenience
+        self.model_aliases = {
+            "gpt-4": "openai/gpt-4",
+            "gpt-4-turbo": "openai/gpt-4-turbo-preview",
+            "gpt-3.5-turbo": "openai/gpt-3.5-turbo",
+            "claude-3-opus": "anthropic/claude-3-opus-20240229",
+            "claude-3-sonnet": "anthropic/claude-3-sonnet-20240229",
+            "claude-3-haiku": "anthropic/claude-3-haiku-20240307",
+            "gemini-pro": "google/gemini-pro",
+            "mistral-large": "mistralai/mistral-large",
+            "mixtral": "mistralai/mixtral-8x7b-instruct"
+        }
     
-    async def call_llm(
+    def _resolve_model(self, model: Optional[str] = None) -> str:
+        """Resolve model name, handling aliases."""
+        if not model:
+            return self.default_model
+        
+        # Check if it's an alias
+        if model in self.model_aliases:
+            return self.model_aliases[model]
+        
+        # Return as-is if not an alias
+        return model
+    
+    def call_llm(
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
+        model: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 2000,
         **kwargs
@@ -129,9 +90,10 @@ class LLMWrapper:
         Args:
             prompt: User prompt
             system_prompt: System prompt (optional)
+            model: Model to use (optional, uses default if not specified)
             temperature: Sampling temperature
             max_tokens: Maximum tokens in response
-            **kwargs: Additional provider-specific parameters
+            **kwargs: Additional parameters passed to OpenAI API
             
         Returns:
             LLM response as string
@@ -143,25 +105,35 @@ class LLMWrapper:
         
         messages.append({"role": "user", "content": prompt})
         
-        logger.info(f"Calling {self.provider_name} with prompt length: {len(prompt)}")
+        model_name = self._resolve_model(model)
+        logger.info(f"Calling {model_name} with prompt length: {len(prompt)}")
         
-        response = await self.provider.call(
-            messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            **kwargs
-        )
-        
-        logger.info(f"Received response length: {len(response)}")
-        
-        return response
+        try:
+            response = self.client.chat.completions.create(
+                model=model_name,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                **kwargs
+            )
+            
+            result = response.choices[0].message.content
+            logger.info(f"Received response length: {len(result)}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"LLM API error: {e}")
+            raise
     
-    async def call_llm_structured(
+    def call_llm_structured(
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
         output_format: str = "yaml",
-        retry_on_parse_error: bool = True,
+        model: Optional[str] = None,
+        temperature: float = 0.3,  # Lower default for structured output
+        max_tokens: int = 3000,
         max_retries: int = 3,
         **kwargs
     ) -> Union[Dict[str, Any], List[Any]]:
@@ -172,23 +144,26 @@ class LLMWrapper:
             prompt: User prompt
             system_prompt: System prompt (optional)
             output_format: Expected format ("json" or "yaml")
-            retry_on_parse_error: Whether to retry on parse errors
+            model: Model to use (optional)
+            temperature: Sampling temperature (lower for more consistent output)
+            max_tokens: Maximum tokens in response
             max_retries: Maximum parse retry attempts
             **kwargs: Additional parameters
             
         Returns:
             Parsed structured data
         """
-        import yaml
-        
-        format_instruction = f"\nPlease respond with valid {output_format.upper()} only, no additional text."
+        format_instruction = f"\nIMPORTANT: Your response must be ONLY valid {output_format.upper()} with no additional text or explanations."
         full_prompt = prompt + format_instruction
         
         for attempt in range(max_retries):
             try:
-                response = await self.call_llm(
+                response = self.call_llm(
                     full_prompt,
                     system_prompt=system_prompt,
+                    model=model,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
                     **kwargs
                 )
                 
@@ -231,26 +206,91 @@ class LLMWrapper:
                     
             except (yaml.YAMLError, json.JSONDecodeError) as e:
                 logger.warning(f"Parse error on attempt {attempt + 1}: {e}")
-                if not retry_on_parse_error or attempt == max_retries - 1:
+                if attempt == max_retries - 1:
                     raise
                 
                 # Add more explicit instructions for next attempt
-                format_instruction = f"\nIMPORTANT: Respond ONLY with valid {output_format.upper()}, no explanations or additional text. The response must be parseable."
+                format_instruction = f"\nCRITICAL: Respond with ONLY valid {output_format.upper()} code. No explanations, no additional text, just the {output_format.upper()} structure."
                 full_prompt = prompt + format_instruction
         
         raise ValueError(f"Failed to get valid {output_format} after {max_retries} attempts")
+    
+    def call_llm_sync(self, prompt: str, **kwargs) -> str:
+        """
+        Synchronous version of call_llm.
+        Since we're using the OpenAI client which is already synchronous,
+        this is just an alias for call_llm.
+        """
+        return self.call_llm(prompt, **kwargs)
+    
+    def call_llm_structured_sync(self, prompt: str, **kwargs) -> Union[Dict[str, Any], List[Any]]:
+        """
+        Synchronous version of call_llm_structured.
+        Since we're using the OpenAI client which is already synchronous,
+        this is just an alias for call_llm_structured.
+        """
+        return self.call_llm_structured(prompt, **kwargs)
+    
+    def list_models(self) -> List[str]:
+        """
+        List available models through OpenRouter.
+        
+        Returns:
+            List of available model IDs
+        """
+        try:
+            # OpenRouter doesn't support the models endpoint in the same way
+            # Return common models instead
+            return list(self.model_aliases.values()) + [
+                "meta-llama/llama-3-70b-instruct",
+                "meta-llama/llama-3-8b-instruct",
+                "nous-hermes-2-mixtral-8x7b-dpo",
+                "databricks/dbrx-instruct",
+                "cohere/command-r-plus",
+                "deepseek/deepseek-chat"
+            ]
+        except Exception as e:
+            logger.error(f"Error listing models: {e}")
+            return []
 
 
 # Global instance for convenience
 _default_wrapper = None
 
 
-def get_default_llm_wrapper(provider: Optional[str] = None, **kwargs) -> LLMWrapper:
-    """Get or create default LLM wrapper instance."""
+def get_default_llm_wrapper(**kwargs) -> LLMWrapper:
+    """
+    Get or create default LLM wrapper instance.
+    
+    Args:
+        **kwargs: Arguments passed to LLMWrapper constructor
+        
+    Returns:
+        LLMWrapper instance
+    """
     global _default_wrapper
     
-    if _default_wrapper is None or provider is not None:
-        provider = provider or os.getenv("LLM_PROVIDER", "openai")
-        _default_wrapper = LLMWrapper(provider, **kwargs)
+    if _default_wrapper is None:
+        _default_wrapper = LLMWrapper(**kwargs)
     
     return _default_wrapper
+
+
+# Example usage
+if __name__ == "__main__":
+    # Example: Using the wrapper
+    wrapper = get_default_llm_wrapper()
+    
+    # Simple completion
+    response = wrapper.call_llm(
+        "What is the capital of France?",
+        model="claude-3-haiku"  # Using alias
+    )
+    print(f"Response: {response}")
+    
+    # Structured output
+    structured = wrapper.call_llm_structured(
+        "List 3 programming languages with their main use cases",
+        output_format="yaml"
+    )
+    print(f"Structured response: {structured}")
