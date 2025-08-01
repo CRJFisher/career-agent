@@ -1,9 +1,13 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
       "Bash(backlog task create:*)",
       "Bash(backlog task list:*)",
-      "Bash(backlog task edit:*)"
+      "Bash(backlog task edit:*)",
+      "Bash(ls:*)",
+      "Bash(git commit:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

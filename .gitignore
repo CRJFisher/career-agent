@@ -155,3 +155,4 @@ output/
 !backlog/config.yml
 temp/
 cache/
+.claude/settings.local.json
