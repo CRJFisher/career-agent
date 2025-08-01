@@ -14,6 +14,8 @@ from pocketflow import Flow, BatchFlow
 from nodes import (
     ExtractRequirementsNode,
     RequirementMappingNode,
+    StrengthAssessmentNode,
+    GapAnalysisNode,
     SaveCheckpointNode,
     LoadCheckpointNode,
     ScanDocumentsNode,
@@ -43,19 +45,38 @@ class AnalysisFlow(Flow):
     """
     Analyzes candidate fit by mapping requirements to experience.
     
-    Includes checkpoint saving for user review of the analysis.
+    This flow performs a complete analysis pipeline:
+    1. Maps job requirements to career database evidence
+    2. Assesses the strength of each mapping (HIGH/MEDIUM/LOW)
+    3. Identifies gaps and generates mitigation strategies
+    4. Saves checkpoint for user review
+    
+    The flow pauses after saving the checkpoint, allowing users to review
+    and edit the analysis before proceeding to narrative generation.
     """
     
     def __init__(self):
         # Create nodes
         mapping = RequirementMappingNode()
-        # TODO: Add StrengthAssessmentNode
-        # TODO: Add GapAnalysisNode
+        assessment = StrengthAssessmentNode()
+        gap_analysis = GapAnalysisNode()
         checkpoint = SaveCheckpointNode()
-        checkpoint.set_params({"flow_name": "analysis"})
         
-        # Connect nodes
-        mapping >> checkpoint
+        # Configure checkpoint to save analysis results
+        checkpoint.set_params({
+            "flow_name": "analysis",
+            "checkpoint_data": [
+                "requirements",
+                "requirement_mapping_raw",
+                "requirement_mapping_assessed",
+                "requirement_mapping_final",
+                "gaps",
+                "coverage_score"
+            ]
+        })
+        
+        # Connect nodes in sequence
+        mapping >> assessment >> gap_analysis >> checkpoint
         
         # Initialize with start node
         super().__init__(start=mapping)
