@@ -297,6 +297,284 @@ class RequirementMappingNode(Node):
         return count
 
 
+class StrengthAssessmentNode(Node):
+    """
+    Evaluates the strength of requirement-to-evidence mappings using LLM.
+    
+    This node uses an LLM to assess how well each piece of evidence demonstrates
+    the required skill or qualification, assigning HIGH, MEDIUM, or LOW scores.
+    """
+    
+    def __init__(self):
+        super().__init__(max_retries=2, wait=1)
+        self.llm = get_default_llm_wrapper()
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Get requirement mapping from shared store."""
+        mapping = shared.get("requirement_mapping_raw", {})
+        
+        if not mapping:
+            raise ValueError("No requirement mapping found in shared store")
+            
+        return mapping
+    
+    def exec(self, mapping: Dict[str, Any]) -> Dict[str, Any]:
+        """Assess strength of each requirement-evidence mapping."""
+        assessed_mapping = {}
+        
+        for req_category, req_items in mapping.items():
+            if isinstance(req_items, dict):
+                # Handle dict-type requirements (skills, responsibilities)
+                assessed_mapping[req_category] = {}
+                
+                for req_name, evidence_list in req_items.items():
+                    if evidence_list:
+                        assessed_evidence = []
+                        for evidence in evidence_list:
+                            # Assess each piece of evidence
+                            strength = self._assess_evidence_strength(
+                                req_name, evidence
+                            )
+                            evidence_with_strength = evidence.copy()
+                            evidence_with_strength["strength"] = strength
+                            assessed_evidence.append(evidence_with_strength)
+                        
+                        assessed_mapping[req_category][req_name] = assessed_evidence
+                    else:
+                        # No evidence found
+                        assessed_mapping[req_category][req_name] = []
+                        
+            elif isinstance(req_items, list):
+                # Handle list-type requirements (single value mapped to evidence)
+                assessed_evidence = []
+                for evidence in req_items:
+                    strength = self._assess_evidence_strength(
+                        req_category, evidence
+                    )
+                    evidence_with_strength = evidence.copy()
+                    evidence_with_strength["strength"] = strength
+                    assessed_evidence.append(evidence_with_strength)
+                
+                assessed_mapping[req_category] = assessed_evidence
+        
+        return {
+            "requirement_mapping_assessed": assessed_mapping
+        }
+    
+    def _assess_evidence_strength(self, requirement: str, evidence: Dict[str, Any]) -> str:
+        """Use LLM to assess how well evidence demonstrates the requirement."""
+        prompt = f"""Assess how strongly this evidence demonstrates the requirement.
+
+Requirement: {requirement}
+
+Evidence Type: {evidence.get('type', 'unknown')}
+Evidence Title: {evidence.get('title', 'N/A')}
+Match Type: {evidence.get('match_type', 'unknown')}
+
+Scoring Criteria:
+- HIGH: Direct, powerful demonstration of the exact skill/requirement
+- MEDIUM: Related experience that partially demonstrates the requirement
+- LOW: Weak or indirect connection to the requirement
+
+Respond with only one word: HIGH, MEDIUM, or LOW"""
+
+        try:
+            response = self.llm.call_llm_sync(prompt)
+            strength = response.strip().upper()
+            
+            # Validate response
+            if strength not in ["HIGH", "MEDIUM", "LOW"]:
+                logger.warning(f"Invalid strength score: {strength}, defaulting to MEDIUM")
+                return "MEDIUM"
+                
+            return strength
+        except Exception as e:
+            logger.error(f"Error assessing evidence strength: {e}")
+            return "MEDIUM"  # Default to MEDIUM on error
+    
+    def post(self, shared: Dict[str, Any], prep_res: Any, exec_res: Dict[str, Any]) -> str:
+        """Store assessed mapping in shared store."""
+        shared["requirement_mapping_assessed"] = exec_res["requirement_mapping_assessed"]
+        return "default"
+
+
+class GapAnalysisNode(Node):
+    """
+    Identifies gaps in requirements and generates mitigation strategies.
+    
+    This node analyzes the assessed mapping to find must-have requirements
+    with weak or missing evidence, then generates strategic approaches to
+    address these gaps in applications and interviews.
+    """
+    
+    def __init__(self):
+        super().__init__(max_retries=2, wait=1)
+        self.llm = get_default_llm_wrapper()
+    
+    def prep(self, shared: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """Get assessed mapping and original requirements."""
+        assessed_mapping = shared.get("requirement_mapping_assessed", {})
+        requirements = shared.get("requirements", {})
+        
+        if not assessed_mapping:
+            raise ValueError("No assessed mapping found in shared store")
+        if not requirements:
+            raise ValueError("No requirements found in shared store")
+            
+        return assessed_mapping, requirements
+    
+    def exec(self, inputs: Tuple[Dict[str, Any], Dict[str, Any]]) -> Dict[str, Any]:
+        """Identify gaps and generate mitigation strategies."""
+        assessed_mapping, requirements = inputs
+        
+        # Identify gaps
+        gaps = self._identify_gaps(assessed_mapping, requirements)
+        
+        # Generate mitigation strategies for each gap
+        gaps_with_strategies = []
+        for gap in gaps:
+            strategy = self._generate_mitigation_strategy(gap)
+            gap_with_strategy = gap.copy()
+            gap_with_strategy["mitigation_strategy"] = strategy
+            gaps_with_strategies.append(gap_with_strategy)
+        
+        # Create final mapping (for downstream use)
+        final_mapping = self._create_final_mapping(assessed_mapping)
+        
+        return {
+            "requirement_mapping_final": final_mapping,
+            "gaps": gaps_with_strategies
+        }
+    
+    def _identify_gaps(self, assessed_mapping: Dict[str, Any], 
+                      requirements: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Identify must-have requirements with weak or no evidence."""
+        gaps = []
+        
+        # Check required skills (typically must-have)
+        if "required_skills" in requirements and "required_skills" in assessed_mapping:
+            for skill in requirements["required_skills"]:
+                evidence = assessed_mapping["required_skills"].get(skill, [])
+                
+                if not evidence:
+                    # No evidence at all
+                    gaps.append({
+                        "requirement": skill,
+                        "category": "required_skills",
+                        "gap_type": "missing",
+                        "evidence": []
+                    })
+                elif all(e.get("strength") == "LOW" for e in evidence):
+                    # Only weak evidence
+                    gaps.append({
+                        "requirement": skill,
+                        "category": "required_skills",
+                        "gap_type": "weak",
+                        "evidence": evidence
+                    })
+        
+        # Check other must-have categories (could be configured)
+        must_have_categories = ["experience_years", "education", "certifications"]
+        
+        for category in must_have_categories:
+            if category in requirements and category in assessed_mapping:
+                evidence = assessed_mapping.get(category, [])
+                
+                if isinstance(evidence, list):
+                    if not evidence:
+                        gaps.append({
+                            "requirement": requirements[category],
+                            "category": category,
+                            "gap_type": "missing",
+                            "evidence": []
+                        })
+                    elif all(e.get("strength") == "LOW" for e in evidence):
+                        gaps.append({
+                            "requirement": requirements[category],
+                            "category": category,
+                            "gap_type": "weak",
+                            "evidence": evidence
+                        })
+        
+        return gaps
+    
+    def _generate_mitigation_strategy(self, gap: Dict[str, Any]) -> str:
+        """Use LLM to generate mitigation strategy for a gap."""
+        gap_type = gap["gap_type"]
+        requirement = gap["requirement"]
+        category = gap["category"]
+        
+        prompt = f"""Generate a mitigation strategy for this requirement gap.
+
+Requirement: {requirement} ({category})
+Gap Type: {gap_type} ({"no evidence found" if gap_type == "missing" else "only weak evidence"})
+
+Create a brief strategy (2-3 sentences) that:
+1. Acknowledges the gap honestly
+2. Highlights transferable skills or related experience
+3. Shows enthusiasm to learn/develop this skill
+4. Focuses on growth potential
+
+Be specific and strategic. Avoid generic statements."""
+
+        try:
+            strategy = self.llm.call_llm_sync(prompt)
+            return strategy.strip()
+        except Exception as e:
+            logger.error(f"Error generating mitigation strategy: {e}")
+            return "Highlight transferable skills and demonstrate strong learning ability and enthusiasm for this area."
+    
+    def _create_final_mapping(self, assessed_mapping: Dict[str, Any]) -> Dict[str, Any]:
+        """Create final mapping with gap indicators."""
+        final_mapping = {}
+        
+        for category, items in assessed_mapping.items():
+            if isinstance(items, dict):
+                final_mapping[category] = {}
+                for req, evidence in items.items():
+                    # Mark as gap if no evidence or all LOW
+                    is_gap = (not evidence or 
+                             all(e.get("strength") == "LOW" for e in evidence))
+                    
+                    final_mapping[category][req] = {
+                        "evidence": evidence,
+                        "is_gap": is_gap,
+                        "strength_summary": self._summarize_strength(evidence)
+                    }
+            else:
+                # Single value requirements
+                is_gap = (not items or 
+                         all(e.get("strength") == "LOW" for e in items))
+                
+                final_mapping[category] = {
+                    "evidence": items,
+                    "is_gap": is_gap,
+                    "strength_summary": self._summarize_strength(items)
+                }
+        
+        return final_mapping
+    
+    def _summarize_strength(self, evidence: List[Dict[str, Any]]) -> str:
+        """Summarize overall strength of evidence."""
+        if not evidence:
+            return "NONE"
+        
+        strengths = [e.get("strength", "MEDIUM") for e in evidence]
+        
+        if "HIGH" in strengths:
+            return "HIGH"
+        elif "MEDIUM" in strengths:
+            return "MEDIUM"
+        else:
+            return "LOW"
+    
+    def post(self, shared: Dict[str, Any], prep_res: Any, exec_res: Dict[str, Any]) -> str:
+        """Store results in shared store."""
+        shared["requirement_mapping_final"] = exec_res["requirement_mapping_final"]
+        shared["gaps"] = exec_res["gaps"]
+        return "default"
+
+
 # Document Processing Nodes
 
 class ScanDocumentsNode(Node):
