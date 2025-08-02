@@ -14,6 +14,7 @@ All nodes extend PocketFlow's base Node class and implement:
 from typing import Dict, Any, Optional, List, Tuple
 import logging
 import yaml
+import os
 from pocketflow import Node, BatchNode
 from utils.llm_wrapper import get_default_llm_wrapper
 
@@ -2642,3 +2643,112 @@ Generate the cover letter now (use "Dear Hiring Manager" for salutation):"""
         ]
         
         return '\n'.join(letter_parts)
+
+
+class ScanDocumentsNode(Node):
+    """Scans configured sources for work experience documents."""
+    
+    def prep(self, shared: dict) -> dict:
+        """Read scan configuration from shared store."""
+        return {
+            "google_drive_folders": shared.get("scan_config", {}).get("google_drive_folders", []),
+            "local_directories": shared.get("scan_config", {}).get("local_directories", []),
+            "file_types": shared.get("scan_config", {}).get("file_types", [".pdf", ".docx", ".md"]),
+            "date_filter": shared.get("scan_config", {}).get("date_filter", {})
+        }
+    
+    def exec(self, prep_res: dict) -> dict:
+        """Execute document scanning across all configured sources."""
+        from utils.document_scanner import scan_documents, DocumentMetadata
+        from datetime import datetime
+        
+        # Prepare paths to scan
+        paths_to_scan = []
+        scanner_types = {}
+        
+        # Add Google Drive folders
+        for folder in prep_res["google_drive_folders"]:
+            folder_id = folder.get("folder_id")
+            if folder_id:
+                paths_to_scan.append(folder_id)
+                scanner_types[folder_id] = 'google_drive'
+        
+        # Add local directories
+        for directory in prep_res["local_directories"]:
+            path = directory.get("path") if isinstance(directory, dict) else directory
+            if path:
+                # Expand user home directory
+                path = os.path.expanduser(path)
+                paths_to_scan.append(path)
+                scanner_types[path] = 'local'
+        
+        # Parse date filter
+        date_filter = prep_res["date_filter"]
+        min_date = None
+        max_date = None
+        
+        if date_filter.get("min_date"):
+            try:
+                min_date = datetime.fromisoformat(date_filter["min_date"])
+            except:
+                pass
+        
+        if date_filter.get("max_date"):
+            try:
+                max_date = datetime.fromisoformat(date_filter["max_date"])
+            except:
+                pass
+        
+        # Scan documents
+        all_documents = []
+        scan_errors = []
+        
+        for path in paths_to_scan:
+            try:
+                # Determine scanner type
+                scanner_type = scanner_types.get(path, 'auto')
+                
+                # Scan this path
+                documents = scan_documents(
+                    paths=[path],
+                    scanner_type=scanner_type,
+                    file_types=set(prep_res["file_types"]),
+                    min_date=min_date,
+                    max_date=max_date
+                )
+                
+                all_documents.extend(documents)
+                
+            except Exception as e:
+                error_msg = f"Failed to scan {path}: {str(e)}"
+                scan_errors.append({
+                    "path": path,
+                    "error": str(e),
+                    "type": type(e).__name__
+                })
+                print(f"Warning: {error_msg}")
+        
+        # Convert documents to dict format
+        document_dicts = [doc.to_dict() for doc in all_documents]
+        
+        return {
+            "documents": document_dicts,
+            "scan_errors": scan_errors,
+            "total_found": len(document_dicts)
+        }
+    
+    def post(self, shared: dict, prep_res: dict, exec_res: dict) -> str:
+        """Store discovered documents in shared store."""
+        # Store documents
+        shared["document_sources"] = exec_res["documents"]
+        
+        # Store any errors
+        if exec_res["scan_errors"]:
+            shared["scan_errors"] = exec_res["scan_errors"]
+        
+        # Log summary
+        print(f"Document scan complete: {exec_res['total_found']} documents found")
+        if exec_res["scan_errors"]:
+            print(f"Encountered {len(exec_res['scan_errors'])} errors during scanning")
+        
+        return "continue"
