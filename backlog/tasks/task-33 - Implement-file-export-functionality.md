@@ -15,21 +15,21 @@ Create functionality to export generated CV and cover letter from shared store t
 
 ## Acceptance Criteria
 
-- [ ] Export function implemented in main.py
-- [ ] CV content from shared['cv_markdown'] saved to .md file
-- [ ] Cover letter from shared['cover_letter_text'] saved to .txt file
-- [ ] Output directory created if not exists
-- [ ] Filenames include timestamp for uniqueness
-- [ ] Success messages displayed to user
-- [ ] Error handling for write failures
-- [ ] Optional PDF conversion mentioned in docs
-- [ ] Unit tests for file export functionality
-- [ ] Tests verify proper file creation with correct extensions
-- [ ] Tests validate filename generation with timestamps
-- [ ] Tests ensure output directory creation works correctly
-- [ ] Tests verify content integrity in exported files
-- [ ] Error handling tests for write permission issues
-- [ ] Tests validate success message generation
+- [x] Export function implemented in main.py
+- [x] CV content from shared['cv_markdown'] saved to .md file
+- [x] Cover letter from shared['cover_letter_text'] saved to .txt file
+- [x] Output directory created if not exists
+- [x] Filenames include timestamp for uniqueness
+- [x] Success messages displayed to user
+- [x] Error handling for write failures
+- [x] Optional PDF conversion mentioned in docs
+- [x] Unit tests for file export functionality
+- [x] Tests verify proper file creation with correct extensions
+- [x] Tests validate filename generation with timestamps
+- [x] Tests ensure output directory creation works correctly
+- [x] Tests verify content integrity in exported files
+- [x] Error handling tests for write permission issues
+- [x] Tests validate success message generation
 
 ## Implementation Plan
 

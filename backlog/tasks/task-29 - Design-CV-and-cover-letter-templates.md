@@ -15,20 +15,20 @@ Create professional templates and formatting guidelines for the generated CV and
 
 ## Acceptance Criteria
 
-- [ ] CV Markdown template with section headers defined
-- [ ] Professional summary section at top of CV
-- [ ] Experience entries with company/role/dates/achievements format
-- [ ] Skills section with categorized technical skills
-- [ ] Education and certifications sections included
-- [ ] Cover letter template with proper business letter format
-- [ ] 5-part structure clearly delineated in cover letter
-- [ ] GitHub-flavored Markdown features utilized effectively
-- [ ] Template validation tests for proper structure and formatting
-- [ ] Tests verify all required CV sections are included
-- [ ] Tests validate cover letter 5-part structure implementation
-- [ ] ATS compatibility tests for both templates
-- [ ] Markdown syntax validation tests
-- [ ] Tests ensure templates produce consistent professional output
+- [x] CV Markdown template with section headers defined
+- [x] Professional summary section at top of CV
+- [x] Experience entries with company/role/dates/achievements format
+- [x] Skills section with categorized technical skills
+- [x] Education and certifications sections included
+- [x] Cover letter template with proper business letter format
+- [x] 5-part structure clearly delineated in cover letter
+- [x] GitHub-flavored Markdown features utilized effectively
+- [x] Template validation tests for proper structure and formatting
+- [x] Tests verify all required CV sections are included
+- [x] Tests validate cover letter 5-part structure implementation
+- [x] ATS compatibility tests for both templates
+- [x] Markdown syntax validation tests
+- [x] Tests ensure templates produce consistent professional output
 
 ## Implementation Plan
 
