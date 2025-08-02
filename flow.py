@@ -24,7 +24,9 @@ from nodes import (
     WebSearchNode,
     ReadContentNode,
     SynthesizeInfoNode,
-    SuitabilityScoringNode
+    SuitabilityScoringNode,
+    ExperiencePrioritizationNode,
+    NarrativeStrategyNode
 )
 
 logger = logging.getLogger(__name__)
@@ -112,18 +114,109 @@ class NarrativeFlow(Flow):
     """
     Develops narrative strategy for the application.
     
-    Prioritizes experiences and creates a cohesive story,
-    with checkpoint for user review.
+    This flow chains ExperiencePrioritizationNode and NarrativeStrategyNode
+    to create a complete narrative strategy, then saves a checkpoint for
+    user review and editing before document generation.
     """
     
     def __init__(self):
-        # TODO: Add ExperiencePrioritizationNode
-        # TODO: Add NarrativeStrategyNode
+        # Create nodes
+        prioritize = ExperiencePrioritizationNode()
+        strategy = NarrativeStrategyNode()
         checkpoint = SaveCheckpointNode()
-        checkpoint.set_params({"flow_name": "narrative"})
         
-        # For now, just checkpoint
-        super().__init__(start=checkpoint)
+        # Configure checkpoint to save narrative elements
+        checkpoint.set_params({
+            "flow_name": "narrative",
+            "checkpoint_data": [
+                "prioritized_experiences",
+                "narrative_strategy",
+                "suitability_assessment",
+                "requirements",
+                "job_title",
+                "company_name"
+            ],
+            "output_file": "narrative_output.yaml",
+            "user_message": """
+Narrative strategy has been saved to narrative_output.yaml
+
+You can now review and edit:
+- Must-tell experiences and their key points
+- Career arc (past, present, future)
+- Key messages to emphasize
+- Evidence stories (CAR format)
+- Differentiators that set you apart
+
+Once you're satisfied with the narrative, run the generation flow
+to create your tailored CV and cover letter.
+"""
+        })
+        
+        # Connect nodes in sequence
+        prioritize >> strategy >> checkpoint
+        
+        # Initialize with start node
+        super().__init__(start=prioritize)
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate required inputs for narrative flow."""
+        required_fields = [
+            "career_db",
+            "requirements", 
+            "suitability_assessment",
+            "job_title",
+            "company_name"
+        ]
+        
+        missing_fields = [field for field in required_fields if field not in shared]
+        
+        if missing_fields:
+            logger.warning(f"NarrativeFlow missing required fields: {missing_fields}")
+            # Initialize missing fields with sensible defaults
+            if "career_db" not in shared:
+                raise ValueError("Career database is required for narrative flow")
+            if "requirements" not in shared:
+                shared["requirements"] = {}
+            if "suitability_assessment" not in shared:
+                logger.warning("Running narrative flow without suitability assessment")
+                shared["suitability_assessment"] = {
+                    "technical_fit_score": 70,
+                    "cultural_fit_score": 70,
+                    "key_strengths": ["Strong technical background"],
+                    "unique_value_proposition": "Experienced professional"
+                }
+            if "job_title" not in shared:
+                shared["job_title"] = "Position"
+            if "company_name" not in shared:
+                shared["company_name"] = "Company"
+        
+        # Set current date if not present
+        if "current_date" not in shared:
+            from datetime import datetime
+            shared["current_date"] = datetime.now().strftime("%Y-%m-%d")
+        
+        return {"input_validation": "complete"}
+    
+    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: Any) -> Dict[str, Any]:
+        """Log completion and provide next steps."""
+        logger.info("=" * 50)
+        logger.info("NARRATIVE FLOW COMPLETE")
+        logger.info("=" * 50)
+        
+        if "prioritized_experiences" in shared:
+            logger.info(f"Prioritized {len(shared['prioritized_experiences'])} experiences")
+        
+        if "narrative_strategy" in shared:
+            strategy = shared["narrative_strategy"]
+            logger.info(f"Generated narrative with:")
+            logger.info(f"  - {len(strategy.get('must_tell_experiences', []))} must-tell experiences")
+            logger.info(f"  - {len(strategy.get('differentiators', []))} differentiators")
+            logger.info(f"  - {len(strategy.get('key_messages', []))} key messages")
+            logger.info(f"  - {len(strategy.get('evidence_stories', []))} evidence stories")
+        
+        logger.info("=" * 50)
+        
+        return shared
 
 
 class GenerationFlow(Flow):
