@@ -23,7 +23,8 @@ from nodes import (
     DecideActionNode,
     WebSearchNode,
     ReadContentNode,
-    SynthesizeInfoNode
+    SynthesizeInfoNode,
+    SuitabilityScoringNode
 )
 
 logger = logging.getLogger(__name__)
@@ -244,6 +245,103 @@ class CompanyResearchAgent(Flow):
         
         # Use parent class logic for routing
         return super().get_next_node(curr, action)
+
+
+class AssessmentFlow(Flow):
+    """
+    Evaluates candidate suitability using comprehensive scoring.
+    
+    This flow takes the outputs from AnalysisFlow (requirement mappings and gaps)
+    and CompanyResearchAgent (company insights) to produce a quantitative and
+    qualitative assessment that guides narrative strategy and material generation.
+    
+    The assessment includes:
+    - Technical fit score (0-100)
+    - Cultural fit score (0-100)
+    - Key strengths identification
+    - Critical gaps analysis
+    - Unique value proposition
+    - Overall hiring recommendation
+    """
+    
+    def __init__(self):
+        """Initialize the assessment flow with SuitabilityScoringNode."""
+        # Create the scoring node
+        scoring = SuitabilityScoringNode()
+        
+        # Simple linear flow: start -> scoring -> end
+        super().__init__(start=scoring)
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Validate required inputs are available.
+        
+        Required inputs:
+        - requirement_mapping_final: From AnalysisFlow
+        - gaps: From AnalysisFlow
+        - company_research: From CompanyResearchAgent
+        - requirements: Original job requirements
+        - job_title: Position title
+        - company_name: Company name
+        """
+        required_fields = [
+            "requirement_mapping_final",
+            "gaps",
+            "requirements",
+            "job_title",
+            "company_name"
+        ]
+        
+        missing_fields = [field for field in required_fields if field not in shared]
+        
+        if missing_fields:
+            logger.warning(f"AssessmentFlow missing required fields: {missing_fields}")
+            # Initialize missing fields with defaults
+            for field in missing_fields:
+                if field == "requirement_mapping_final":
+                    shared[field] = {}
+                elif field == "gaps":
+                    shared[field] = []
+                elif field == "requirements":
+                    shared[field] = {}
+                elif field in ["job_title", "company_name"]:
+                    shared[field] = "Unknown"
+        
+        # Company research is optional but recommended
+        if "company_research" not in shared:
+            logger.warning("No company research available for cultural fit assessment")
+            shared["company_research"] = {}
+        
+        return {"input_validation": "complete"}
+    
+    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: Any) -> Dict[str, Any]:
+        """
+        Validate assessment output and log summary.
+        
+        The SuitabilityScoringNode should have populated:
+        - shared["suitability_assessment"]: Complete assessment results
+        """
+        if "suitability_assessment" not in shared:
+            logger.error("AssessmentFlow failed to produce suitability assessment")
+            return shared
+        
+        assessment = shared["suitability_assessment"]
+        
+        # Log assessment summary
+        logger.info("=" * 50)
+        logger.info("SUITABILITY ASSESSMENT COMPLETE")
+        logger.info("=" * 50)
+        logger.info(f"Technical Fit Score: {assessment.get('technical_fit_score', 'N/A')}/100")
+        logger.info(f"Cultural Fit Score: {assessment.get('cultural_fit_score', 'N/A')}/100")
+        logger.info(f"Key Strengths: {len(assessment.get('key_strengths', []))}")
+        logger.info(f"Critical Gaps: {len(assessment.get('critical_gaps', []))}")
+        
+        if assessment.get('overall_recommendation'):
+            logger.info(f"\nRecommendation: {assessment['overall_recommendation'][:100]}...")
+        
+        logger.info("=" * 50)
+        
+        return shared
 
 
 # Utility function to create complete application workflow

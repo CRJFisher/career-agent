@@ -1210,3 +1210,290 @@ Respond in YAML format with the structure shown above."""
         
         logger.info("Successfully synthesized research information")
         return "decide"  # Return to DecideActionNode for next decision
+
+
+class SuitabilityScoringNode(Node):
+    """
+    Performs holistic evaluation of job fit from a hiring manager perspective.
+    
+    This node takes requirement mappings, gaps, and company research to produce
+    a comprehensive assessment including technical fit score, cultural fit score,
+    key strengths, critical gaps, and unique value proposition.
+    """
+    
+    def __init__(self):
+        super().__init__(max_retries=2, wait=1)
+        self.llm = get_default_llm_wrapper()
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Gather all inputs needed for suitability assessment."""
+        # Get requirement mapping data
+        requirement_mapping = shared.get("requirement_mapping_final", {})
+        gaps = shared.get("gaps", [])
+        
+        # Get company research data
+        company_research = shared.get("company_research", {})
+        
+        # Get original requirements
+        requirements = shared.get("requirements", {})
+        
+        # Get job details
+        job_title = shared.get("job_title", "")
+        company_name = shared.get("company_name", "")
+        
+        if not requirement_mapping:
+            raise ValueError("No requirement mapping found for assessment")
+        
+        return {
+            "requirement_mapping": requirement_mapping,
+            "gaps": gaps,
+            "company_research": company_research,
+            "requirements": requirements,
+            "job_title": job_title,
+            "company_name": company_name
+        }
+    
+    def exec(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Perform comprehensive suitability assessment using LLM."""
+        # First calculate technical fit score
+        technical_fit_score = self._calculate_technical_fit(
+            context["requirement_mapping"],
+            context["requirements"]
+        )
+        
+        # Prepare comprehensive prompt for LLM assessment
+        prompt = self._build_assessment_prompt(context, technical_fit_score)
+        
+        try:
+            # Get LLM assessment
+            assessment = self.llm.call_llm_structured_sync(
+                prompt=prompt,
+                output_format="yaml",
+                model="claude-3-opus"
+            )
+            
+            # Ensure technical fit score is included
+            assessment["technical_fit_score"] = technical_fit_score
+            
+            # Validate assessment structure
+            required_fields = [
+                "technical_fit_score",
+                "cultural_fit_score", 
+                "key_strengths",
+                "critical_gaps",
+                "unique_value_proposition",
+                "overall_recommendation"
+            ]
+            
+            for field in required_fields:
+                if field not in assessment:
+                    logger.warning(f"Missing required field in assessment: {field}")
+                    if field == "cultural_fit_score":
+                        assessment[field] = 70  # Default medium score
+                    elif field in ["key_strengths", "critical_gaps"]:
+                        assessment[field] = []
+                    else:
+                        assessment[field] = "Unable to assess"
+            
+            return assessment
+            
+        except Exception as e:
+            logger.error(f"Failed to generate suitability assessment: {e}")
+            # Return minimal assessment on error
+            return {
+                "technical_fit_score": technical_fit_score,
+                "cultural_fit_score": 50,
+                "key_strengths": ["Technical skills match requirements"],
+                "critical_gaps": ["Unable to perform full assessment"],
+                "unique_value_proposition": "Candidate shows potential",
+                "overall_recommendation": "Requires further evaluation"
+            }
+    
+    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: Dict[str, Any]) -> str:
+        """Store suitability assessment in shared store."""
+        shared["suitability_assessment"] = exec_res
+        
+        logger.info(f"Suitability assessment complete:")
+        logger.info(f"  Technical fit: {exec_res['technical_fit_score']}/100")
+        logger.info(f"  Cultural fit: {exec_res['cultural_fit_score']}/100")
+        logger.info(f"  Strengths identified: {len(exec_res.get('key_strengths', []))}")
+        logger.info(f"  Gaps identified: {len(exec_res.get('critical_gaps', []))}")
+        
+        return "default"
+    
+    def _calculate_technical_fit(self, mapping: Dict[str, Any], requirements: Dict[str, Any]) -> int:
+        """
+        Calculate technical fit score based on requirement coverage.
+        
+        Scoring logic:
+        - Required skills: 60% of total score
+        - Preferred skills: 20% of total score
+        - Experience/Education: 20% of total score
+        
+        Each category scored by:
+        - HIGH strength: 100% of points
+        - MEDIUM strength: 60% of points
+        - LOW strength: 30% of points
+        - Missing: 0% of points
+        """
+        score = 0
+        max_score = 100
+        
+        # Score required skills (60 points max)
+        if "required_skills" in requirements and "required_skills" in mapping:
+            required_score = self._score_category(
+                requirements["required_skills"],
+                mapping["required_skills"],
+                60
+            )
+            score += required_score
+        
+        # Score preferred skills (20 points max)
+        if "preferred_skills" in requirements and "preferred_skills" in mapping:
+            preferred_score = self._score_category(
+                requirements["preferred_skills"],
+                mapping["preferred_skills"],
+                20
+            )
+            score += preferred_score
+        
+        # Score experience/education (20 points max)
+        other_score = 0
+        other_max = 20
+        other_categories = ["experience_years", "education", "certifications"]
+        
+        for category in other_categories:
+            if category in requirements and category in mapping:
+                cat_mapping = mapping[category]
+                if isinstance(cat_mapping, dict) and not cat_mapping.get("is_gap", True):
+                    strength = cat_mapping.get("strength_summary", "NONE")
+                    if strength == "HIGH":
+                        other_score += other_max / len(other_categories)
+                    elif strength == "MEDIUM":
+                        other_score += (other_max / len(other_categories)) * 0.6
+                    elif strength == "LOW":
+                        other_score += (other_max / len(other_categories)) * 0.3
+        
+        score += other_score
+        
+        # Ensure score is within bounds
+        return max(0, min(100, int(score)))
+    
+    def _score_category(self, requirements: List[str], mappings: Dict[str, Any], max_points: int) -> float:
+        """Score a category of requirements based on mapping strength."""
+        if not requirements:
+            return max_points  # No requirements means full credit
+        
+        total_score = 0
+        points_per_req = max_points / len(requirements)
+        
+        for req in requirements:
+            if req in mappings:
+                req_data = mappings[req]
+                if isinstance(req_data, dict):
+                    strength = req_data.get("strength_summary", "NONE")
+                    is_gap = req_data.get("is_gap", False)
+                    
+                    if not is_gap:
+                        if strength == "HIGH":
+                            total_score += points_per_req
+                        elif strength == "MEDIUM":
+                            total_score += points_per_req * 0.6
+                        elif strength == "LOW":
+                            total_score += points_per_req * 0.3
+        
+        return total_score
+    
+    def _build_assessment_prompt(self, context: Dict[str, Any], technical_score: int) -> str:
+        """Build comprehensive assessment prompt for LLM."""
+        return f"""You are a senior hiring manager evaluating a candidate for the position of {context['job_title']} at {context['company_name']}.
+
+## Technical Fit Analysis
+The candidate has achieved a technical fit score of {technical_score}/100 based on requirement coverage.
+
+Requirement Mapping Summary:
+{self._summarize_mapping(context['requirement_mapping'])}
+
+Critical Gaps Identified:
+{self._summarize_gaps(context['gaps'])}
+
+## Company Context
+{self._summarize_company_research(context['company_research'])}
+
+## Your Task
+Provide a comprehensive suitability assessment from a hiring manager's perspective. Consider both the quantitative technical fit and qualitative factors like cultural alignment and growth potential.
+
+Focus on:
+1. Cultural fit based on company values and work environment
+2. Key strengths that make this candidate compelling
+3. Critical gaps that need addressing
+4. Unique value proposition - what rare combination of skills/experience makes them special
+5. Overall hiring recommendation
+
+Respond in YAML format:
+
+```yaml
+cultural_fit_score: <0-100>  # Based on alignment with company culture/values
+key_strengths:
+  - <Specific compelling strength with evidence>
+  - <Another key differentiator>
+  - <Continue for 3-5 total strengths>
+critical_gaps:
+  - <Most important gap with impact>
+  - <Other significant gaps>
+  - <Be honest but constructive>
+unique_value_proposition: |
+  <1-2 paragraphs describing the rare intersection of skills, experience, and perspective
+   that makes this candidate uniquely valuable. Focus on combinations that are hard to find.>
+overall_recommendation: |
+  <1 paragraph with your hiring recommendation and reasoning. Be decisive but balanced.>
+```"""
+    
+    def _summarize_mapping(self, mapping: Dict[str, Any]) -> str:
+        """Summarize requirement mapping for prompt."""
+        summary = []
+        for category, items in mapping.items():
+            if isinstance(items, dict):
+                high_count = sum(1 for req, data in items.items() 
+                               if isinstance(data, dict) and data.get("strength_summary") == "HIGH")
+                medium_count = sum(1 for req, data in items.items() 
+                                 if isinstance(data, dict) and data.get("strength_summary") == "MEDIUM")
+                total = len(items)
+                summary.append(f"- {category}: {high_count} HIGH, {medium_count} MEDIUM out of {total}")
+        
+        return "\n".join(summary) if summary else "No mapping data available"
+    
+    def _summarize_gaps(self, gaps: List[Dict[str, Any]]) -> str:
+        """Summarize gaps for prompt."""
+        if not gaps:
+            return "No critical gaps identified"
+        
+        summary = []
+        for gap in gaps[:5]:  # Top 5 gaps
+            req = gap.get("requirement", "Unknown")
+            gap_type = gap.get("gap_type", "missing")
+            strategy = gap.get("mitigation_strategy", "")
+            
+            summary.append(f"- {req} ({gap_type})")
+            if strategy:
+                summary.append(f"  Mitigation: {strategy}")
+        
+        return "\n".join(summary)
+    
+    def _summarize_company_research(self, research: Dict[str, Any]) -> str:
+        """Summarize company research for cultural fit assessment."""
+        if not research:
+            return "No company research available"
+        
+        sections = []
+        
+        if research.get("culture"):
+            sections.append(f"Culture: {', '.join(research['culture'][:3])}")
+        
+        if research.get("technology_stack_practices"):
+            sections.append(f"Tech Stack: {', '.join(research['technology_stack_practices'][:3])}")
+            
+        if research.get("team_work_environment"):
+            sections.append(f"Work Environment: {', '.join(research['team_work_environment'][:3])}")
+        
+        return "\n".join(sections) if sections else "Limited company information available"
