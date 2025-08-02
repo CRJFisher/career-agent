@@ -47,19 +47,19 @@ Create the main.py file that orchestrates all flows in sequence, manages the sha
 
 ### Main Orchestrator Enhancements
 
-1. **Updated main.py** with complete pipeline orchestration:
+1. __Updated main.py__ with complete pipeline orchestration:
    - Refactored imports to include all 7 flows
    - Added CompanyResearchAgent and AssessmentFlow
    - Improved documentation and structure
 
-2. **initialize_shared_store() function**:
+2. __initialize_shared_store() function__:
    - Implements complete data contract with all required keys
    - Initializes all flow outputs as None
    - Sets configuration flags (enable_company_research, etc.)
    - Includes current_date for document generation
    - Validates against shared store data contract
 
-3. **process_job_application() function** - Complete 7-step pipeline:
+3. __process_job_application() function__ - Complete 7-step pipeline:
    - Step 1: Extract requirements (RequirementExtractionFlow)
    - Step 2: Analyze fit (AnalysisFlow) with checkpoint support
    - Step 3: Company research (CompanyResearchAgent) - optional
@@ -71,7 +71,7 @@ Create the main.py file that orchestrates all flows in sequence, manages the sha
    - Error handling for failed flows
    - Returns complete shared store for testing
 
-4. **export_final_materials() function**:
+4. __export_final_materials() function__:
    - Creates outputs directory with timestamp
    - Sanitizes filenames (handles special characters)
    - Exports CV as .md file
@@ -80,14 +80,14 @@ Create the main.py file that orchestrates all flows in sequence, manages the sha
    - Optional DOCX generation for cover letter
    - Success logging with checkmarks
 
-5. **resume_workflow() function**:
+5. __resume_workflow() function__:
    - Loads checkpoint data from YAML file
    - Supports resuming from "analysis" or "narrative" checkpoints
    - Continues remaining flows based on checkpoint
    - Maintains shared store state across resume
    - Error handling for missing checkpoints
 
-6. **Enhanced CLI interface**:
+6. __Enhanced CLI interface__:
    - --job-file: Path to job description
    - --job-title: Position title (required)
    - --company: Company name (required)
@@ -99,7 +99,7 @@ Create the main.py file that orchestrates all flows in sequence, manages the sha
    - Helpful examples in epilog
    - Better error messages for missing arguments
 
-7. **Demo mode implementation**:
+7. __Demo mode implementation__:
    - Sample job description for ML Platform role
    - Sample career database with realistic data
    - Demonstrates full pipeline functionality
@@ -107,7 +107,7 @@ Create the main.py file that orchestrates all flows in sequence, manages the sha
 
 ### Test Coverage
 
-1. **tests/test_main_orchestrator.py**:
+1. __tests/test_main_orchestrator.py__:
    - TestInitializeSharedStore: Validates shared store structure
    - TestProcessJobApplication: Tests flow execution order
    - TestExportFinalMaterials: Tests file export functionality
@@ -115,7 +115,7 @@ Create the main.py file that orchestrates all flows in sequence, manages the sha
    - TestLoadConfig: Tests configuration loading
    - Mock-based testing for isolation
 
-2. **tests/test_integration_pipeline.py**:
+2. __tests/test_integration_pipeline.py__:
    - TestEndToEndPipeline: Full pipeline with mocked LLM
    - TestErrorHandling: Graceful failure scenarios
    - TestPerformance: Timing constraints
@@ -124,10 +124,10 @@ Create the main.py file that orchestrates all flows in sequence, manages the sha
 
 ### Key Improvements
 
-1. **Complete Flow Integration**: All 7 flows properly orchestrated
-2. **Checkpoint Support**: Pause/resume at analysis and narrative stages
-3. **Company Research**: Optional AI-driven company research
-4. **Better UX**: Clear progress indicators and helpful messages
-5. **Error Resilience**: Graceful handling of failures
-6. **Testing**: Comprehensive unit and integration tests
-7. **Documentation**: Clear help text and examples
+1. __Complete Flow Integration__: All 7 flows properly orchestrated
+2. __Checkpoint Support__: Pause/resume at analysis and narrative stages
+3. __Company Research__: Optional AI-driven company research
+4. __Better UX__: Clear progress indicators and helpful messages
+5. __Error Resilience__: Graceful handling of failures
+6. __Testing__: Comprehensive unit and integration tests
+7. __Documentation__: Clear help text and examples
