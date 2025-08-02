@@ -1212,6 +1212,294 @@ Respond in YAML format with the structure shown above."""
         return "decide"  # Return to DecideActionNode for next decision
 
 
+class ExperiencePrioritizationNode(Node):
+    """
+    Scores and ranks career experiences using weighted criteria.
+    
+    This is a pure Python node (no LLM) that implements deterministic scoring:
+    - Relevance to role: 40%
+    - Recency: 20%
+    - Impact: 20%
+    - Uniqueness: 10%
+    - Growth demonstration: 10%
+    """
+    
+    # Scoring weights
+    WEIGHTS = {
+        "relevance": 0.40,
+        "recency": 0.20,
+        "impact": 0.20,
+        "uniqueness": 0.10,
+        "growth": 0.10
+    }
+    
+    def __init__(self):
+        super().__init__(max_retries=1, wait=0)  # No retries needed for deterministic logic
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract career database and job requirements."""
+        career_db = shared.get("career_db", {})
+        requirements = shared.get("requirements", {})
+        
+        # Get all experiences to score
+        experiences = []
+        
+        # Add professional experiences
+        for exp in career_db.get("professional_experience", []):
+            experiences.append({
+                "type": "professional",
+                "data": exp,
+                "source": "professional_experience"
+            })
+        
+        # Add projects
+        for proj in career_db.get("projects", []):
+            experiences.append({
+                "type": "project",
+                "data": proj,
+                "source": "projects"
+            })
+        
+        # Add other relevant experiences
+        for edu in career_db.get("education", []):
+            if edu.get("achievements") or edu.get("projects"):
+                experiences.append({
+                    "type": "education",
+                    "data": edu,
+                    "source": "education"
+                })
+        
+        return {
+            "experiences": experiences,
+            "requirements": requirements,
+            "current_date": shared.get("current_date", "2024-01-01")
+        }
+    
+    def exec(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Score each experience and sort by composite score."""
+        experiences = context["experiences"]
+        requirements = context["requirements"]
+        current_date = context["current_date"]
+        
+        scored_experiences = []
+        
+        for exp in experiences:
+            scores = {
+                "relevance": self._score_relevance(exp["data"], requirements),
+                "recency": self._score_recency(exp["data"], current_date),
+                "impact": self._score_impact(exp["data"]),
+                "uniqueness": self._score_uniqueness(exp["data"], experiences),
+                "growth": self._score_growth(exp["data"])
+            }
+            
+            # Calculate weighted composite score
+            composite_score = sum(
+                scores[criterion] * self.WEIGHTS[criterion]
+                for criterion in self.WEIGHTS
+            )
+            
+            scored_experiences.append({
+                "experience": exp,
+                "scores": scores,
+                "composite_score": composite_score
+            })
+        
+        # Sort by composite score (highest first)
+        scored_experiences.sort(key=lambda x: x["composite_score"], reverse=True)
+        
+        return {"scored_experiences": scored_experiences}
+    
+    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: Dict) -> str:
+        """Save prioritized experiences to shared store."""
+        scored_experiences = exec_res["scored_experiences"]
+        
+        # Create prioritized list
+        prioritized = []
+        for i, scored_exp in enumerate(scored_experiences):
+            exp_data = scored_exp["experience"]["data"]
+            
+            # Extract title/name
+            title = (exp_data.get("role") or 
+                    exp_data.get("title") or 
+                    exp_data.get("name") or 
+                    exp_data.get("degree", "Unknown"))
+            
+            prioritized.append({
+                "rank": i + 1,
+                "title": title,
+                "type": scored_exp["experience"]["type"],
+                "composite_score": round(scored_exp["composite_score"], 2),
+                "scores": scored_exp["scores"],
+                "data": exp_data
+            })
+        
+        shared["prioritized_experiences"] = prioritized
+        
+        # Log top experiences
+        logger.info(f"Prioritized {len(prioritized)} experiences")
+        for exp in prioritized[:5]:
+            logger.info(f"  #{exp['rank']}: {exp['title']} (score: {exp['composite_score']})")
+        
+        return "prioritize"
+    
+    def _score_relevance(self, experience: Dict[str, Any], requirements: Dict[str, Any]) -> float:
+        """Score relevance to job requirements (0-100)."""
+        if not requirements:
+            return 50  # Default if no requirements
+        
+        score = 0
+        max_score = 0
+        
+        # Get all required and preferred skills
+        all_skills = []
+        all_skills.extend(requirements.get("required_skills", []))
+        all_skills.extend(requirements.get("preferred_skills", []))
+        
+        # Also consider technologies mentioned
+        all_skills.extend(requirements.get("technologies", []))
+        
+        # Normalize skills for matching
+        normalized_skills = [skill.lower() for skill in all_skills]
+        
+        # Check experience text for skill matches
+        exp_text = self._get_experience_text(experience).lower()
+        
+        for skill in normalized_skills:
+            max_score += 1
+            if skill in exp_text:
+                score += 1
+        
+        # Check for industry/domain match
+        if requirements.get("industry"):
+            max_score += 2  # Industry match is important
+            if requirements["industry"].lower() in exp_text:
+                score += 2
+        
+        return (score / max_score * 100) if max_score > 0 else 0
+    
+    def _score_recency(self, experience: Dict[str, Any], current_date: str) -> float:
+        """Score based on recency (0-100)."""
+        # Extract end date or use start date if ongoing
+        end_date = experience.get("end_date") or experience.get("date") or current_date
+        
+        if end_date == "Present":
+            return 100  # Current experience gets max score
+        
+        try:
+            # Simple year extraction
+            current_year = int(current_date.split("-")[0])
+            exp_year = int(end_date.split("-")[0])
+            
+            years_ago = current_year - exp_year
+            
+            # Scoring: 100 for current, -10 per year, min 0
+            return max(0, 100 - (years_ago * 10))
+        except:
+            return 50  # Default for unparseable dates
+    
+    def _score_impact(self, experience: Dict[str, Any]) -> float:
+        """Score based on quantified impact (0-100)."""
+        impact_keywords = [
+            "increased", "decreased", "improved", "reduced", "saved",
+            "generated", "achieved", "delivered", "launched", "built",
+            "%", "$", "million", "thousand", "x"
+        ]
+        
+        exp_text = self._get_experience_text(experience).lower()
+        
+        # Count impact indicators
+        impact_count = sum(1 for keyword in impact_keywords if keyword in exp_text)
+        
+        # Check for specific quantified achievements
+        achievements = experience.get("achievements", [])
+        quantified_count = sum(
+            1 for ach in achievements 
+            if any(char.isdigit() for char in str(ach))
+        )
+        
+        # Combined score
+        total_indicators = impact_count + (quantified_count * 2)  # Weight quantified higher
+        
+        # Scale to 0-100 (5+ indicators = 100)
+        return min(100, total_indicators * 20)
+    
+    def _score_uniqueness(self, experience: Dict[str, Any], all_experiences: List[Dict]) -> float:
+        """Score based on uniqueness compared to other experiences (0-100)."""
+        exp_text = self._get_experience_text(experience).lower()
+        
+        # Extract key terms (simple approach)
+        exp_terms = set(word for word in exp_text.split() if len(word) > 4)
+        
+        # Compare with other experiences
+        similarity_scores = []
+        for other in all_experiences:
+            if other["data"] == experience:  # Skip self
+                continue
+            
+            other_text = self._get_experience_text(other["data"]).lower()
+            other_terms = set(word for word in other_text.split() if len(word) > 4)
+            
+            # Jaccard similarity
+            if exp_terms or other_terms:
+                similarity = len(exp_terms & other_terms) / len(exp_terms | other_terms)
+                similarity_scores.append(similarity)
+        
+        if not similarity_scores:
+            return 100  # Unique by default
+        
+        # Average similarity
+        avg_similarity = sum(similarity_scores) / len(similarity_scores)
+        
+        # Convert to uniqueness score (inverse of similarity)
+        return int((1 - avg_similarity) * 100)
+    
+    def _score_growth(self, experience: Dict[str, Any]) -> float:
+        """Score based on growth demonstration (0-100)."""
+        growth_indicators = [
+            "promoted", "advanced", "led", "managed", "grew",
+            "expanded", "senior", "principal", "director", "head",
+            "team", "department", "initiative", "transformation"
+        ]
+        
+        exp_text = self._get_experience_text(experience).lower()
+        
+        # Count growth indicators
+        growth_count = sum(1 for indicator in growth_indicators if indicator in exp_text)
+        
+        # Check for team size mentions
+        import re
+        team_patterns = [
+            r'\d+\s*(?:person|people|member|engineer|developer)',
+            r'team of \d+',
+            r'\d+\+?\s*direct reports'
+        ]
+        
+        team_mentions = sum(1 for pattern in team_patterns if re.search(pattern, exp_text))
+        
+        # Combined score
+        total_indicators = growth_count + (team_mentions * 2)  # Weight team leadership
+        
+        # Scale to 0-100 (5+ indicators = 100)
+        return min(100, total_indicators * 20)
+    
+    def _get_experience_text(self, experience: Dict[str, Any]) -> str:
+        """Extract all text from an experience entry."""
+        text_parts = []
+        
+        # Add all string fields
+        for key, value in experience.items():
+            if isinstance(value, str):
+                text_parts.append(value)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, str):
+                        text_parts.append(item)
+                    elif isinstance(item, dict):
+                        text_parts.append(self._get_experience_text(item))
+        
+        return " ".join(text_parts)
+
+
 class SuitabilityScoringNode(Node):
     """
     Performs holistic evaluation of job fit from a hiring manager perspective.
