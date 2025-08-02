@@ -1,0 +1,132 @@
+# Suitability Assessment Prompt Variations
+# Test different scenarios to ensure prompt robustness
+
+test_scenarios:
+  - name: "Perfect Fit Candidate"
+    context:
+      technical_score: 95
+      gaps: []
+      company_culture: "Fast-paced innovation-driven startup"
+    expected_outputs:
+      cultural_fit_score_range: [85, 100]
+      hiring_decision: ["strong_yes", "yes"]
+      key_strengths_count: [4, 5]
+      critical_gaps_count: [0, 1]
+    
+  - name: "Strong Technical Weak Cultural"
+    context:
+      technical_score: 90
+      company_culture: "Collaborative team-first environment"
+      candidate_style: "Prefers independent work"
+    expected_outputs:
+      cultural_fit_score_range: [40, 65]
+      hiring_decision: ["maybe", "no"]
+      focus: "Cultural fit concerns should dominate"
+  
+  - name: "Junior Overqualified" 
+    context:
+      job_title: "Junior Developer"
+      candidate_experience: "10 years senior roles"
+      technical_score: 100
+    expected_outputs:
+      unique_concern: "Overqualification and retention risk"
+      hiring_decision: ["maybe", "no"]
+      
+  - name: "Career Changer"
+    context:
+      previous_industry: "Finance"
+      target_industry: "Healthcare Tech"
+      technical_score: 65
+      transferable_skills: ["Data analysis", "Compliance", "Python"]
+    expected_outputs:
+      focus: "Transferable skills and learning potential"
+      unique_value: "Domain expertise from finance"
+      
+  - name: "Missing Critical Skills"
+    context:
+      technical_score: 45
+      missing_required: ["Python", "AWS", "API Design"]
+      strong_areas: ["Frontend", "UI/UX", "Testing"]
+    expected_outputs:
+      hiring_decision: ["no"]
+      severity_assessment: "Multiple critical blockers"
+      
+  - name: "Remote Mismatch"
+    context:
+      company_policy: "Office-first (5 days)"
+      candidate_preference: "Remote-only"
+      technical_score: 85
+    expected_outputs:
+      cultural_fit_breakdown:
+        work_style_alignment_range: [0, 25]
+      critical_gaps: ["Location/remote work incompatibility"]
+
+prompt_edge_cases:
+  - name: "Minimal Information"
+    description: "Test with bare minimum context"
+    provided_fields:
+      - job_title
+      - technical_score
+    missing_fields:
+      - company_research
+      - detailed_requirements
+    expected_behavior: "Should note incomplete information and provide caveated assessment"
+    
+  - name: "Conflicting Signals"
+    description: "Strong technical skills but ethical concerns"
+    context:
+      technical_fit: "Excellent"
+      reference_feedback: "Brilliant but difficult to work with"
+    expected_behavior: "Should weigh interpersonal concerns heavily"
+    
+  - name: "Industry Pioneer"
+    description: "Candidate bringing new expertise to company"
+    context:
+      candidate_background: "First ML engineer at traditional company"
+      company_need: "Building first AI team"
+    expected_focus: "Unique value of building from scratch"
+
+validation_criteria:
+  structural:
+    - "All required YAML fields present"
+    - "Scores within 0-100 range"
+    - "Enumerated values match specification"
+    - "Text fields have substantial content (>50 chars)"
+    
+  logical:
+    - "Cultural fit breakdown averages to total score (±5)"
+    - "Number of strengths matches score level"
+    - "Gap severity aligns with technical score"
+    - "Recommendation consistent with scores"
+    
+  qualitative:
+    - "Strengths include specific evidence"
+    - "Gaps include mitigation strategies"
+    - "UVP identifies genuine intersections"
+    - "Reasoning is decisive and clear"
+
+anti_patterns:
+  - name: "Generic Strengths"
+    bad_example: "Good communication skills"
+    good_example: "Led cross-functional team of 12 through merger integration"
+    
+  - name: "Vague UVP"
+    bad_example: "Candidate has diverse skills"
+    good_example: "Rare combination of kernel programming and React mastery enables full-stack optimization"
+    
+  - name: "Hedged Recommendations"
+    bad_example: "Maybe hire if you think it's good"
+    good_example: "Recommend proceeding with technical interview despite Kubernetes gap"
+
+prompt_improvement_suggestions:
+  v2_features:
+    - "Competitive analysis vs other candidates"
+    - "Salary expectation alignment"
+    - "Long-term growth trajectory projection"
+    - "Team composition impact analysis"
+    
+  advanced_frameworks:
+    - "T-shaped skills mapping"
+    - "Culture add vs culture fit"
+    - "Reverse interviewing recommendations"
+    - "Onboarding complexity assessment"
