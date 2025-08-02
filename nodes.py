@@ -2752,3 +2752,404 @@ class ScanDocumentsNode(Node):
             print(f"Encountered {len(exec_res['scan_errors'])} errors during scanning")
         
         return "continue"
+
+
+class ExtractExperienceNode(BatchNode):
+    """Extracts work experience from parsed documents using LLM analysis."""
+    
+    def __init__(self):
+        super().__init__()
+        self.llm = get_default_llm_wrapper()
+        self.batch_size = 5  # Process 5 documents at a time
+    
+    def prep(self, shared: dict) -> dict:
+        """Prepare documents for processing."""
+        documents = shared.get("document_sources", [])
+        
+        # Load career schema if available
+        career_schema = None
+        if "career_database_schema" in shared:
+            career_schema = shared["career_database_schema"]
+        else:
+            # Use default schema structure
+            career_schema = self._get_default_career_schema()
+        
+        return {
+            "documents": documents,
+            "batch_size": self.batch_size,
+            "career_schema": career_schema,
+            "extraction_mode": shared.get("extraction_mode", "comprehensive")
+        }
+    
+    def exec_batch(self, batch: List[dict], prep_res: dict) -> List[dict]:
+        """Process a batch of documents."""
+        from utils.document_parser import parse_document
+        import json
+        
+        extracted = []
+        
+        for doc in batch:
+            try:
+                # Parse document
+                logger.info(f"Parsing document: {doc['name']}")
+                parsed = parse_document(doc['path'], parser_type='auto')
+                
+                if parsed.error:
+                    logger.error(f"Failed to parse {doc['name']}: {parsed.error}")
+                    extracted.append({
+                        "document_source": doc['path'],
+                        "document_name": doc['name'],
+                        "extraction_confidence": 0.0,
+                        "error": parsed.error,
+                        "experiences": []
+                    })
+                    continue
+                
+                # Extract experience via LLM
+                logger.info(f"Extracting experience from {doc['name']}")
+                experience_data = self._extract_experience(
+                    parsed, 
+                    doc,
+                    prep_res["career_schema"],
+                    prep_res["extraction_mode"]
+                )
+                
+                extracted.append(experience_data)
+                
+            except Exception as e:
+                logger.error(f"Error processing document {doc['name']}: {str(e)}")
+                extracted.append({
+                    "document_source": doc['path'],
+                    "document_name": doc['name'],
+                    "extraction_confidence": 0.0,
+                    "error": str(e),
+                    "experiences": []
+                })
+        
+        return extracted
+    
+    def _extract_experience(self, parsed_doc, doc_metadata, career_schema, extraction_mode):
+        """Extract experience from a single document using LLM."""
+        # Determine document type
+        doc_type = self._classify_document(parsed_doc, doc_metadata)
+        
+        # Create extraction prompt
+        system_prompt = self._create_system_prompt(career_schema, doc_type, extraction_mode)
+        user_prompt = self._create_user_prompt(parsed_doc, doc_metadata, doc_type)
+        
+        try:
+            # Call LLM
+            response = self.llm.complete(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.1,  # Low temperature for consistency
+                max_tokens=4000
+            )
+            
+            # Parse YAML response
+            extracted_data = yaml.safe_load(response)
+            
+            # Validate and structure the response
+            structured_data = self._structure_extraction(
+                extracted_data, 
+                doc_metadata,
+                doc_type
+            )
+            
+            return structured_data
+            
+        except yaml.YAMLError as e:
+            logger.error(f"Failed to parse LLM response as YAML: {e}")
+            # Try to extract what we can
+            return self._create_fallback_extraction(parsed_doc, doc_metadata, str(response))
+        except Exception as e:
+            logger.error(f"LLM extraction failed: {e}")
+            raise
+    
+    def _classify_document(self, parsed_doc, doc_metadata):
+        """Classify document type based on content and metadata."""
+        content_lower = parsed_doc.content.lower()
+        name_lower = doc_metadata['name'].lower()
+        
+        # Check for resume indicators
+        if any(term in name_lower for term in ['resume', 'cv', 'curriculum']):
+            return "resume"
+        
+        if any(term in content_lower[:500] for term in ['experience', 'education', 'skills', 'objective']):
+            return "resume"
+        
+        # Check for portfolio/project indicators
+        if any(term in name_lower for term in ['portfolio', 'project', 'case study']):
+            return "portfolio"
+        
+        # Check for specific project document patterns
+        if any(section.title.lower() in ['overview', 'background', 'implementation', 'results'] 
+               for section in parsed_doc.sections):
+            return "project"
+        
+        # Default
+        return "general"
+    
+    def _create_system_prompt(self, career_schema, doc_type, extraction_mode):
+        """Create system prompt for experience extraction."""
+        schema_yaml = yaml.dump(career_schema, default_flow_style=False)
+        
+        base_prompt = f"""You are an expert career analyst extracting work experience from documents.
+Your task is to extract structured information that matches this career database schema:
+
+{schema_yaml}
+
+Document Type: {doc_type}
+Extraction Mode: {extraction_mode}
+
+Focus on extracting:
+1. Complete work history with accurate dates
+2. Detailed project information nested within relevant work experiences
+3. Technologies and skills used (be comprehensive)
+4. Quantifiable achievements with specific metrics
+5. Leadership and team experiences
+6. Company culture insights where mentioned
+
+Guidelines:
+- Extract ALL work experiences found in the document
+- For each experience, extract ALL nested projects mentioned
+- Preserve exact dates and durations as written
+- Capture metrics and numbers precisely
+- Infer missing information only when strongly implied
+- Use null for truly missing required fields
+- Ensure technologies lists are comprehensive
+- Link projects to their parent work experience
+
+Return the extracted data as valid YAML matching the schema structure.
+Only include the data, no explanations or comments."""
+        
+        if extraction_mode == "comprehensive":
+            base_prompt += "\n\nBe extremely thorough - extract every detail available."
+        elif extraction_mode == "targeted":
+            base_prompt += "\n\nFocus on technical roles and achievements."
+        
+        return base_prompt
+    
+    def _create_user_prompt(self, parsed_doc, doc_metadata, doc_type):
+        """Create user prompt with document content."""
+        # Limit content length for very large documents
+        content = parsed_doc.content
+        if len(content) > 15000:
+            content = content[:15000] + "\n\n[Content truncated...]"
+        
+        prompt = f"""Extract all work experience from this document:
+
+Document Name: {doc_metadata['name']}
+Document Type: {doc_type}
+Source: {doc_metadata['source']}
+
+Content:
+{content}
+
+Remember to:
+1. Extract complete work history
+2. Include all projects within each role
+3. Capture all technologies mentioned
+4. Preserve quantified achievements
+5. Note team sizes and leadership roles
+
+Return as structured YAML matching the career database schema."""
+        
+        return prompt
+    
+    def _structure_extraction(self, extracted_data, doc_metadata, doc_type):
+        """Structure and validate extracted data."""
+        # Initialize result structure
+        result = {
+            "document_source": doc_metadata['path'],
+            "document_name": doc_metadata['name'],
+            "document_type": doc_type,
+            "extraction_confidence": 0.9,  # Default high confidence
+            "personal_info": extracted_data.get("personal_info", {}),
+            "experiences": [],
+            "education": extracted_data.get("education", []),
+            "skills": extracted_data.get("skills", {}),
+            "projects": extracted_data.get("projects", []),
+            "certifications": extracted_data.get("certifications", []),
+            "publications": extracted_data.get("publications", []),
+            "awards": extracted_data.get("awards", [])
+        }
+        
+        # Process experiences
+        for exp in extracted_data.get("experience", []):
+            structured_exp = {
+                "company": exp.get("company", ""),
+                "title": exp.get("title", ""),
+                "duration": exp.get("duration", ""),
+                "location": exp.get("location", ""),
+                "description": exp.get("description", ""),
+                "achievements": exp.get("achievements", []),
+                "technologies": exp.get("technologies", []),
+                "team_size": exp.get("team_size"),
+                "projects": []
+            }
+            
+            # Process nested projects
+            for proj in exp.get("projects", []):
+                structured_proj = {
+                    "title": proj.get("title", ""),
+                    "description": proj.get("description", ""),
+                    "achievements": proj.get("achievements", []),
+                    "role": proj.get("role", ""),
+                    "technologies": proj.get("technologies", []),
+                    "key_stakeholders": proj.get("key_stakeholders", []),
+                    "notable_challenges": proj.get("notable_challenges", [])
+                }
+                structured_exp["projects"].append(structured_proj)
+            
+            result["experiences"].append(structured_exp)
+        
+        # Calculate confidence based on completeness
+        confidence = self._calculate_extraction_confidence(result)
+        result["extraction_confidence"] = confidence
+        
+        return result
+    
+    def _calculate_extraction_confidence(self, extracted_data):
+        """Calculate confidence score based on extraction completeness."""
+        score = 0.0
+        factors = 0
+        
+        # Check experiences
+        if extracted_data["experiences"]:
+            score += 0.3
+            factors += 0.3
+            
+            # Check completeness of experiences
+            complete_experiences = sum(
+                1 for exp in extracted_data["experiences"]
+                if exp.get("company") and exp.get("title") and exp.get("duration")
+            )
+            if complete_experiences > 0:
+                score += 0.2 * (complete_experiences / len(extracted_data["experiences"]))
+                factors += 0.2
+        
+        # Check education
+        if extracted_data["education"]:
+            score += 0.1
+            factors += 0.1
+        
+        # Check skills
+        if extracted_data["skills"] and extracted_data["skills"].get("technical"):
+            score += 0.1
+            factors += 0.1
+        
+        # Check for projects
+        total_projects = len(extracted_data["projects"])
+        for exp in extracted_data["experiences"]:
+            total_projects += len(exp.get("projects", []))
+        if total_projects > 0:
+            score += 0.1
+            factors += 0.1
+        
+        # Check personal info
+        if extracted_data["personal_info"] and extracted_data["personal_info"].get("name"):
+            score += 0.1
+            factors += 0.1
+        
+        # Check for quantified achievements
+        has_metrics = False
+        for exp in extracted_data["experiences"]:
+            for achievement in exp.get("achievements", []):
+                if any(char.isdigit() for char in achievement):
+                    has_metrics = True
+                    break
+        if has_metrics:
+            score += 0.1
+            factors += 0.1
+        
+        return round(score / factors if factors > 0 else 0.0, 2)
+    
+    def _create_fallback_extraction(self, parsed_doc, doc_metadata, raw_response):
+        """Create a basic extraction when YAML parsing fails."""
+        return {
+            "document_source": doc_metadata['path'],
+            "document_name": doc_metadata['name'],
+            "extraction_confidence": 0.3,
+            "error": "Failed to parse structured response",
+            "raw_extraction": raw_response[:1000],  # First 1000 chars
+            "experiences": [],
+            "education": [],
+            "skills": {},
+            "projects": []
+        }
+    
+    def _get_default_career_schema(self):
+        """Get default career database schema structure."""
+        return {
+            "personal_info": {
+                "name": "string",
+                "email": "string",
+                "phone": "string (optional)",
+                "location": "string (optional)",
+                "linkedin": "string (optional)",
+                "github": "string (optional)"
+            },
+            "experience": [{
+                "title": "string",
+                "company": "string",
+                "duration": "string (e.g., '2020-Present')",
+                "location": "string (optional)",
+                "description": "string",
+                "achievements": ["string (quantified)"],
+                "technologies": ["string"],
+                "projects": [{
+                    "title": "string",
+                    "description": "string",
+                    "achievements": ["string"],
+                    "technologies": ["string"]
+                }]
+            }],
+            "education": [{
+                "degree": "string",
+                "institution": "string",
+                "year": "string",
+                "location": "string (optional)"
+            }],
+            "skills": {
+                "technical": ["string"],
+                "soft": ["string (optional)"],
+                "tools": ["string (optional)"],
+                "frameworks": ["string (optional)"]
+            }
+        }
+    
+    def post(self, shared: dict, prep_res: dict, exec_res: List[dict]) -> str:
+        """Store extracted experiences in shared store."""
+        # Flatten all extracted experiences
+        all_extracted = []
+        successful_extractions = 0
+        failed_extractions = 0
+        
+        for batch_result in exec_res:
+            for extraction in batch_result:
+                all_extracted.append(extraction)
+                if extraction.get("extraction_confidence", 0) > 0.5:
+                    successful_extractions += 1
+                else:
+                    failed_extractions += 1
+        
+        # Store in shared
+        shared["extracted_experiences"] = all_extracted
+        
+        # Store summary statistics
+        shared["extraction_summary"] = {
+            "total_documents": len(all_extracted),
+            "successful_extractions": successful_extractions,
+            "failed_extractions": failed_extractions,
+            "average_confidence": sum(e.get("extraction_confidence", 0) for e in all_extracted) / len(all_extracted) if all_extracted else 0
+        }
+        
+        # Log summary
+        logger.info(f"Experience extraction complete: {successful_extractions} successful, {failed_extractions} failed")
+        if failed_extractions > 0:
+            logger.warning(f"Failed to extract from {failed_extractions} documents")
+        
+        return "continue"
