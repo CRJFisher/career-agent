@@ -12,8 +12,6 @@ estimated_hours: 4
 actual_hours: 0
 ---
 
-# Task: Implement LoadCheckpointNode
-
 ## Description
 
 Implement the LoadCheckpointNode that loads previously saved checkpoints and user-edited files to resume workflow execution.

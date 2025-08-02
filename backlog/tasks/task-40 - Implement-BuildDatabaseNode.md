@@ -12,8 +12,6 @@ estimated_hours: 6
 actual_hours: 0
 ---
 
-# Task: Implement BuildDatabaseNode
-
 ## Description
 
 Implement the BuildDatabaseNode that structures extracted work experiences into the enhanced career database format, handling deduplication and validation.

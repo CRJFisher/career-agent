@@ -12,8 +12,6 @@ estimated_hours: 8
 actual_hours: 0
 ---
 
-# Task: Implement ExtractExperienceNode
-
 ## Description
 
 Implement the ExtractExperienceNode that processes discovered documents and extracts work experience information using LLM-powered analysis.

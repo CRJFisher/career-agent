@@ -12,8 +12,6 @@ estimated_hours: 4
 actual_hours: 0
 ---
 
-# Task: Implement ExperienceDatabaseFlow
-
 ## Description
 
 Implement the ExperienceDatabaseFlow that orchestrates the complete process of building a career database from document sources.

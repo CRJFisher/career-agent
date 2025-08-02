@@ -12,8 +12,6 @@ estimated_hours: 4
 actual_hours: 0
 ---
 
-# Task: Implement ScanDocumentsNode
-
 ## Description
 
 Implement the ScanDocumentsNode that discovers and lists all relevant documents from configured Google Drive folders and local directories for work experience extraction.

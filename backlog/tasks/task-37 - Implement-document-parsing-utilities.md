@@ -12,8 +12,6 @@ estimated_hours: 6
 actual_hours: 0
 ---
 
-# Task: Implement Document Parsing Utilities
-
 ## Description
 
 Create utilities to extract text and structured information from various document formats including PDFs, Word documents, Markdown files, and Google Docs.

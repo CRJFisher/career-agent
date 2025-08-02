@@ -12,8 +12,6 @@ estimated_hours: 3
 actual_hours: 0
 ---
 
-# Task: Implement SaveCheckpointNode
-
 ## Description
 
 Implement the SaveCheckpointNode that saves workflow state and outputs to files for user review, enabling pause/resume functionality.
