@@ -1,10 +1,10 @@
 ---
 id: task-17
 title: Implement CompanyResearchAgent flow
-status: Completed
+status: Done
 assignee: []
 created_date: '2025-07-31'
-updated_date: '2025-07-31'
+updated_date: '2025-08-02'
 labels: []
 dependencies: []
 ---
@@ -40,3 +40,60 @@ Create the looping agent flow that orchestrates company research using DecideAct
 6. All tool nodes return to DecideActionNode
 7. Implement iteration counter for safety
 8. Return completed research in shared store
+
+## Implementation Notes & Findings
+
+### Architecture Insights
+
+1. **PocketFlow Integration**: Initially attempted to override `run()` method, but discovered PocketFlow's Flow class has its own orchestration logic. Solution was to override `get_next_node()` instead to implement iteration limiting while leveraging built-in flow execution.
+
+2. **Loop Structure**: Used PocketFlow's edge notation:
+
+   ```python
+   decide - "web_search" >> web_search
+   web_search - "decide" >> decide
+   ```
+
+   This creates bidirectional connections where actions determine routing.
+
+3. **Iteration Safety**: Implemented iteration counting in `get_next_node()` rather than in flow execution, ensuring clean integration with PocketFlow's orchestration.
+
+### Research Template Design
+
+The agent initializes a comprehensive research template:
+
+```python
+{
+    "mission": None,
+    "team_scope": None,
+    "strategic_importance": None,
+    "culture": None,
+    "technology_stack_practices": None,
+    "recent_developments": None,
+    "market_position_growth": None
+}
+```
+
+### Testing Approach
+
+1. **Flow Graph Verification**: Tests verify node connections by checking `successors` dictionary on each node.
+
+2. **Mock Strategy**: All tests mock LLM wrapper at the fixture level to avoid API key requirements.
+
+3. **Integration Testing**: Created tests that exercise the full flow with mocked LLM responses to verify proper action routing.
+
+### Key Learnings
+
+1. **Flow Termination**: Two ways to exit the loop:
+   - DecideActionNode returns "finish" action
+   - Iteration count exceeds maximum
+
+2. **State Management**: Research state is incrementally built up across iterations, with each tool node contributing to `information_gathered`.
+
+3. **Error Resilience**: The flow continues even if individual tool nodes fail, logging errors but not breaking the loop.
+
+### Future Enhancements
+
+- Could add priority-based research (focus on missing template fields)
+- Could implement backtracking if research goes off-track
+- Could add research quality assessment before finishing

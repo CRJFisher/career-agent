@@ -1,10 +1,10 @@
 ---
 id: task-16
 title: Implement tool nodes for research agent
-status: Completed
+status: Done
 assignee: []
 created_date: '2025-07-31'
-updated_date: '2025-07-31'
+updated_date: '2025-08-02'
 labels: []
 dependencies: []
 ---
@@ -39,3 +39,32 @@ Create WebSearchNode, ReadContentNode, and SynthesizeInfoNode that execute the t
 6. Implement post() to save results to shared store
 7. Each node returns to DecideActionNode for next decision
 8. Add error handling for utility failures
+
+## Implementation Notes & Findings
+
+### Key Design Decisions
+
+1. **Async Handling in WebSearchNode**: The WebSearcher utility is async, so we needed to create a new event loop within the sync exec() method to run the async search operation.
+
+2. **Action Parameter Reading**: All tool nodes read parameters from `shared["action_params"]` which is populated by DecideActionNode.
+
+3. **Return Action**: All tool nodes return "decide" to create the loop back to DecideActionNode for the next decision.
+
+4. **Data Storage Patterns**:
+   - WebSearchNode: Stores results in both `shared["search_results"]` and appends to `shared["research_state"]["information_gathered"]["search_results"]`
+   - ReadContentNode: Stores content in `shared["current_content"]` and URL in `shared["current_url"]`
+   - SynthesizeInfoNode: Updates `shared["company_research"]` with structured insights
+
+### Testing Challenges
+
+1. **Mocking Async Code**: Testing WebSearchNode required careful mocking of asyncio event loops and the WebSearcher context manager.
+
+2. **LLM Wrapper Mocking**: All nodes that use LLM (DecideActionNode, SynthesizeInfoNode) require mocking `get_default_llm_wrapper` to avoid API key requirements in tests.
+
+3. **Utility Function Imports**: Tests need to patch at the correct import location (e.g., `utils.web_search.WebSearcher` not `nodes.WebSearcher`).
+
+### Integration Points
+
+- All nodes follow the PocketFlow 3-step pattern (prep/exec/post)
+- Nodes are designed to be stateless and reusable
+- Error handling logs failures but returns safe defaults to keep the flow running
