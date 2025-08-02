@@ -42,3 +42,92 @@ Create the main.py file that orchestrates all flows in sequence, manages the sha
 6. Instantiate all flows in sequence
 7. Execute flows passing shared store
 8. Export final materials to files
+
+## Implementation Details
+
+### Main Orchestrator Enhancements
+
+1. **Updated main.py** with complete pipeline orchestration:
+   - Refactored imports to include all 7 flows
+   - Added CompanyResearchAgent and AssessmentFlow
+   - Improved documentation and structure
+
+2. **initialize_shared_store() function**:
+   - Implements complete data contract with all required keys
+   - Initializes all flow outputs as None
+   - Sets configuration flags (enable_company_research, etc.)
+   - Includes current_date for document generation
+   - Validates against shared store data contract
+
+3. **process_job_application() function** - Complete 7-step pipeline:
+   - Step 1: Extract requirements (RequirementExtractionFlow)
+   - Step 2: Analyze fit (AnalysisFlow) with checkpoint support
+   - Step 3: Company research (CompanyResearchAgent) - optional
+   - Step 4: Suitability assessment (AssessmentFlow)
+   - Step 5: Develop narrative (NarrativeFlow) with checkpoint
+   - Step 6: Generate documents (GenerationFlow)
+   - Step 7: Export final materials
+   - Progress logging with clear step indicators
+   - Error handling for failed flows
+   - Returns complete shared store for testing
+
+4. **export_final_materials() function**:
+   - Creates outputs directory with timestamp
+   - Sanitizes filenames (handles special characters)
+   - Exports CV as .md file
+   - Exports cover letter as .txt file
+   - Optional PDF generation via pandoc
+   - Optional DOCX generation for cover letter
+   - Success logging with checkmarks
+
+5. **resume_workflow() function**:
+   - Loads checkpoint data from YAML file
+   - Supports resuming from "analysis" or "narrative" checkpoints
+   - Continues remaining flows based on checkpoint
+   - Maintains shared store state across resume
+   - Error handling for missing checkpoints
+
+6. **Enhanced CLI interface**:
+   - --job-file: Path to job description
+   - --job-title: Position title (required)
+   - --company: Company name (required)
+   - --company-url: Optional company website
+   - --career-db: Path to career database (default: career_database.yaml)
+   - --skip-research: Skip company research phase
+   - --resume: Resume from checkpoint (analysis/narrative)
+   - --demo: Run with sample data
+   - Helpful examples in epilog
+   - Better error messages for missing arguments
+
+7. **Demo mode implementation**:
+   - Sample job description for ML Platform role
+   - Sample career database with realistic data
+   - Demonstrates full pipeline functionality
+   - Useful for testing and development
+
+### Test Coverage
+
+1. **tests/test_main_orchestrator.py**:
+   - TestInitializeSharedStore: Validates shared store structure
+   - TestProcessJobApplication: Tests flow execution order
+   - TestExportFinalMaterials: Tests file export functionality
+   - TestResumeWorkflow: Tests checkpoint resume
+   - TestLoadConfig: Tests configuration loading
+   - Mock-based testing for isolation
+
+2. **tests/test_integration_pipeline.py**:
+   - TestEndToEndPipeline: Full pipeline with mocked LLM
+   - TestErrorHandling: Graceful failure scenarios
+   - TestPerformance: Timing constraints
+   - Shared store data flow validation
+   - Checkpoint pause/resume testing
+
+### Key Improvements
+
+1. **Complete Flow Integration**: All 7 flows properly orchestrated
+2. **Checkpoint Support**: Pause/resume at analysis and narrative stages
+3. **Company Research**: Optional AI-driven company research
+4. **Better UX**: Clear progress indicators and helpful messages
+5. **Error Resilience**: Graceful handling of failures
+6. **Testing**: Comprehensive unit and integration tests
+7. **Documentation**: Clear help text and examples
