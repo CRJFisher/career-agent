@@ -2052,3 +2052,305 @@ overall_recommendation: |
             sections.append(f"Work Environment: {', '.join(research['team_work_environment'][:3])}")
         
         return "\n".join(sections) if sections else "Limited company information available"
+
+
+class CVGenerationNode(Node):
+    """
+    Generates a tailored CV in GitHub-flavored Markdown format.
+    
+    This LLM-driven node acts as a professional resume writer, using the
+    narrative strategy to prioritize experiences and drawing detailed data
+    from the career database. The CV emphasizes must-tell experiences while
+    using job specification language for ATS optimization.
+    """
+    
+    def __init__(self):
+        super().__init__(max_retries=2, wait=1)
+        self.llm = get_default_llm_wrapper()
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Gather narrative strategy, career database, and requirements."""
+        narrative_strategy = shared.get("narrative_strategy", {})
+        career_db = shared.get("career_db", {})
+        requirements = shared.get("requirements", {})
+        job_title = shared.get("job_title", "")
+        company_name = shared.get("company_name", "")
+        
+        # Check for empty dicts as well as missing
+        if not narrative_strategy or narrative_strategy == {}:
+            raise ValueError("No narrative strategy found for CV generation")
+        
+        if not career_db or career_db == {}:
+            raise ValueError("No career database found for CV generation")
+        
+        return {
+            "narrative_strategy": narrative_strategy,
+            "career_db": career_db,
+            "requirements": requirements,
+            "job_title": job_title,
+            "company_name": company_name
+        }
+    
+    def exec(self, context: Dict[str, Any]) -> str:
+        """Generate CV using professional resume writer prompt."""
+        prompt = self._build_cv_prompt(context)
+        
+        try:
+            cv_markdown = self.llm.call_llm_sync(
+                prompt=prompt,
+                max_tokens=3000
+            )
+            
+            # Basic validation
+            if not cv_markdown or len(cv_markdown) < 500:
+                logger.warning("Generated CV seems too short, using fallback")
+                return self._create_fallback_cv(context)
+            
+            return cv_markdown
+            
+        except Exception as e:
+            logger.error(f"Failed to generate CV: {e}")
+            return self._create_fallback_cv(context)
+    
+    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: str) -> str:
+        """Store generated CV in shared store."""
+        shared["cv_markdown"] = exec_res
+        
+        # Log summary
+        lines = exec_res.split('\n')
+        logger.info(f"Generated CV with {len(lines)} lines")
+        
+        # Count key sections
+        sections = [line for line in lines if line.startswith('##')]
+        logger.info(f"CV sections: {len(sections)}")
+        for section in sections[:5]:  # First 5 sections
+            logger.info(f"  - {section.strip('#').strip()}")
+        
+        return "cv_generated"
+    
+    def _build_cv_prompt(self, context: Dict[str, Any]) -> str:
+        """Build comprehensive prompt for CV generation."""
+        narrative = context["narrative_strategy"]
+        career_db = context["career_db"]
+        requirements = context["requirements"]
+        job_title = context["job_title"]
+        company_name = context["company_name"]
+        
+        # Extract key information
+        must_tell_titles = [exp["title"] for exp in narrative.get("must_tell_experiences", [])]
+        key_messages = narrative.get("key_messages", [])
+        differentiators = narrative.get("differentiators", [])
+        career_arc = narrative.get("career_arc", {})
+        
+        # Get all skills from requirements
+        all_skills = set()
+        all_skills.update(requirements.get("required_skills", []))
+        all_skills.update(requirements.get("preferred_skills", []))
+        all_skills.update(requirements.get("technologies", []))
+        
+        return f"""You are an expert resume writer specializing in technical roles. Create a compelling CV for {job_title} at {company_name}.
+
+NARRATIVE STRATEGY TO FOLLOW:
+
+Key Messages to Emphasize:
+{chr(10).join(f"- {msg}" for msg in key_messages)}
+
+Must-Tell Experiences (feature prominently):
+{chr(10).join(f"- {title}" for title in must_tell_titles)}
+
+Differentiators:
+{chr(10).join(f"- {diff}" for diff in differentiators)}
+
+Career Arc:
+- Past: {career_arc.get('past', 'N/A')}
+- Present: {career_arc.get('present', 'N/A')}
+- Future: {career_arc.get('future', 'N/A')}
+
+TARGET JOB REQUIREMENTS:
+{self._format_requirements(requirements)}
+
+CAREER DATABASE:
+{self._format_career_db_for_cv(career_db, must_tell_titles)}
+
+INSTRUCTIONS:
+1. Create a professional summary that weaves together all 3 key messages and highlights differentiators
+2. Feature must-tell experiences prominently with expanded bullet points
+3. Use job specification language throughout (mirror the requirements)
+4. Include quantified achievements with specific metrics
+5. Minimize or summarize experiences not in the must-tell list
+6. Ensure all required skills from the job are represented
+7. Use GitHub-flavored Markdown with proper formatting
+
+OUTPUT FORMAT:
+```markdown
+# [Full Name]
+
+## Professional Summary
+[3-4 lines incorporating all key messages and differentiators]
+
+## Core Skills
+- **[Category]**: skill1, skill2, skill3
+- **[Category]**: skill1, skill2, skill3
+
+## Professional Experience
+
+### [Job Title] | [Company] | [Date Range]
+[Brief context if must-tell experience]
+- [Achievement with metric using job spec language]
+- [Achievement with metric using job spec language]
+- [Achievement demonstrating required skill]
+
+### [Earlier roles summarized if not must-tell]
+
+## Education
+### [Degree] | [Institution] | [Year]
+
+## Certifications & Training
+- [Relevant certifications]
+
+## Projects [Optional if relevant]
+### [Project Name]
+[Brief description with technologies and impact]
+```
+
+Generate the CV now:"""
+    
+    def _format_requirements(self, requirements: Dict[str, Any]) -> str:
+        """Format requirements for prompt context."""
+        sections = []
+        
+        if requirements.get("required_skills"):
+            sections.append(f"Required Skills: {', '.join(requirements['required_skills'])}")
+        
+        if requirements.get("preferred_skills"):
+            sections.append(f"Preferred Skills: {', '.join(requirements['preferred_skills'])}")
+        
+        if requirements.get("experience_years"):
+            years = requirements["experience_years"]
+            if isinstance(years, dict):
+                sections.append(f"Experience: {years.get('min', 0)}-{years.get('max', 'N/A')} years")
+            else:
+                sections.append(f"Experience: {years} years")
+        
+        if requirements.get("education"):
+            sections.append(f"Education: {', '.join(requirements['education'])}")
+        
+        return '\n'.join(sections) if sections else "No specific requirements provided"
+    
+    def _format_career_db_for_cv(self, career_db: Dict[str, Any], must_tell_titles: List[str]) -> str:
+        """Format career database focusing on must-tell experiences."""
+        sections = []
+        
+        # Personal info
+        personal = career_db.get("personal_information", {})
+        if personal:
+            sections.append(f"Name: {personal.get('name', 'Not provided')}")
+            sections.append(f"Email: {personal.get('email', 'Not provided')}")
+            sections.append(f"Location: {personal.get('location', 'Not provided')}")
+            sections.append("")
+        
+        # Professional experience (prioritize must-tell)
+        experiences = career_db.get("professional_experience", [])
+        if experiences:
+            sections.append("PROFESSIONAL EXPERIENCE:")
+            
+            # First add must-tell experiences
+            for exp in experiences:
+                role_title = f"{exp.get('role', '')} at {exp.get('company', '')}"
+                if any(title in role_title for title in must_tell_titles):
+                    sections.append(f"\n[MUST-TELL] {role_title}")
+                    sections.append(f"Dates: {exp.get('start_date', '')} - {exp.get('end_date', '')}")
+                    
+                    if exp.get("responsibilities"):
+                        sections.append("Responsibilities:")
+                        for resp in exp["responsibilities"][:3]:
+                            sections.append(f"  - {resp}")
+                    
+                    if exp.get("achievements"):
+                        sections.append("Achievements:")
+                        for ach in exp["achievements"]:
+                            sections.append(f"  - {ach}")
+                    
+                    if exp.get("technologies"):
+                        sections.append(f"Technologies: {', '.join(exp['technologies'])}")
+            
+            # Then add other experiences briefly
+            for exp in experiences:
+                role_title = f"{exp.get('role', '')} at {exp.get('company', '')}"
+                if not any(title in role_title for title in must_tell_titles):
+                    sections.append(f"\n{role_title} ({exp.get('start_date', '')} - {exp.get('end_date', '')})")
+                    if exp.get("achievements"):
+                        sections.append(f"  Key: {exp['achievements'][0]}")
+        
+        # Education
+        education = career_db.get("education", [])
+        if education:
+            sections.append("\nEDUCATION:")
+            for edu in education:
+                sections.append(f"- {edu.get('degree', '')} from {edu.get('institution', '')} ({edu.get('graduation_date', '')})")
+        
+        # Skills
+        skills = career_db.get("skills", {})
+        if skills:
+            sections.append("\nSKILLS:")
+            for category, skill_list in skills.items():
+                if skill_list:
+                    sections.append(f"- {category}: {', '.join(skill_list)}")
+        
+        # Certifications
+        certs = career_db.get("certifications", [])
+        if certs:
+            sections.append("\nCERTIFICATIONS:")
+            for cert in certs:
+                sections.append(f"- {cert.get('name', '')} ({cert.get('date', '')})")
+        
+        return '\n'.join(sections)
+    
+    def _create_fallback_cv(self, context: Dict[str, Any]) -> str:
+        """Create a basic CV if generation fails."""
+        career_db = context["career_db"]
+        narrative = context["narrative_strategy"]
+        
+        personal = career_db.get("personal_information", {})
+        name = personal.get("name", "Professional")
+        email = personal.get("email", "email@example.com")
+        location = personal.get("location", "Location")
+        
+        # Build fallback CV
+        cv_lines = [
+            f"# {name}",
+            f"{email} | {location}",
+            "",
+            "## Professional Summary"
+        ]
+        
+        # Add key messages as summary
+        for msg in narrative.get("key_messages", ["Experienced professional"]):
+            cv_lines.append(f"- {msg}")
+        
+        cv_lines.extend(["", "## Professional Experience", ""])
+        
+        # Add experiences
+        for exp in career_db.get("professional_experience", [])[:5]:
+            cv_lines.append(f"### {exp.get('role', 'Role')} | {exp.get('company', 'Company')} | {exp.get('start_date', 'Start')} - {exp.get('end_date', 'End')}")
+            
+            # Add top achievements
+            for ach in exp.get("achievements", [])[:3]:
+                cv_lines.append(f"- {ach}")
+            cv_lines.append("")
+        
+        # Add education
+        cv_lines.extend(["## Education", ""])
+        for edu in career_db.get("education", []):
+            cv_lines.append(f"### {edu.get('degree', 'Degree')} | {edu.get('institution', 'Institution')} | {edu.get('graduation_date', 'Year')}")
+            cv_lines.append("")
+        
+        # Add skills
+        skills = career_db.get("skills", {})
+        if skills:
+            cv_lines.extend(["## Technical Skills", ""])
+            for category, skill_list in skills.items():
+                if skill_list:
+                    cv_lines.append(f"- **{category}**: {', '.join(skill_list)}")
+        
+        return '\n'.join(cv_lines)
