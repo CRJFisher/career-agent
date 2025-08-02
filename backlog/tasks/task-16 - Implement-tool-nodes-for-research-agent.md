@@ -15,19 +15,19 @@ Create WebSearchNode, ReadContentNode, and SynthesizeInfoNode that execute the t
 
 ## Acceptance Criteria
 
-- [ ] WebSearchNode class calls utils/web_search.py with query parameter
-- [ ] ReadContentNode class calls utils/web_scraper.py with URL parameter
-- [ ] SynthesizeInfoNode uses LLM to extract specific info from text
-- [ ] All nodes follow prep/exec/post lifecycle pattern
-- [ ] Nodes read action parameters from shared store
-- [ ] Search results saved to shared['search_results']
-- [ ] Scraped content saved to shared['current_content']
-- [ ] Synthesized info updates shared['company_research']
-- [ ] Unit tests written for all three node classes
-- [ ] Tests verify proper utility function calls with correct parameters
-- [ ] Tests validate shared store updates with expected data structures
-- [ ] Error handling tests for utility failures
-- [ ] Mock-based tests to isolate node behavior from external dependencies
+- [x] WebSearchNode class calls utils/web_search.py with query parameter
+- [x] ReadContentNode class calls utils/web_scraper.py with URL parameter
+- [x] SynthesizeInfoNode uses LLM to extract specific info from text
+- [x] All nodes follow prep/exec/post lifecycle pattern
+- [x] Nodes read action parameters from shared store
+- [x] Search results saved to shared['search_results']
+- [x] Scraped content saved to shared['current_content']
+- [x] Synthesized info updates shared['company_research']
+- [x] Unit tests written for all three node classes
+- [x] Tests verify proper utility function calls with correct parameters
+- [x] Tests validate shared store updates with expected data structures
+- [x] Error handling tests for utility failures
+- [x] Mock-based tests to isolate node behavior from external dependencies
 
 ## Implementation Plan
 

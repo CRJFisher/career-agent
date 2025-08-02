@@ -8,7 +8,7 @@ or pipeline in the job application process.
 All flows extend PocketFlow's base Flow class.
 """
 
-from typing import Optional
+from typing import Optional, Dict, Any
 import logging
 from pocketflow import Flow, BatchFlow
 from nodes import (
@@ -19,7 +19,11 @@ from nodes import (
     SaveCheckpointNode,
     LoadCheckpointNode,
     ScanDocumentsNode,
-    ExtractExperienceNode
+    ExtractExperienceNode,
+    DecideActionNode,
+    WebSearchNode,
+    ReadContentNode,
+    SynthesizeInfoNode
 )
 
 logger = logging.getLogger(__name__)
@@ -137,6 +141,109 @@ class GenerationFlow(Flow):
         # TODO: Add CoverLetterNode
         
         super().__init__(start=load)
+
+
+class CompanyResearchAgent(Flow):
+    """
+    Autonomous agent that researches a company for job applications.
+    
+    This flow implements a looping agent architecture where DecideActionNode
+    acts as the cognitive core, directing research activities through tool nodes.
+    The agent continues until it has gathered sufficient information about:
+    - Company mission and values
+    - Team scope and structure
+    - Strategic importance of the role
+    - Company culture and work environment
+    
+    The flow includes safety limits to prevent infinite loops.
+    """
+    
+    def __init__(self, max_iterations: int = 20):
+        """
+        Initialize the research agent flow.
+        
+        Args:
+            max_iterations: Maximum number of decision loops before forcing termination
+        """
+        self.max_iterations = max_iterations
+        self.iteration_count = 0
+        
+        # Create all nodes
+        decide = DecideActionNode()
+        web_search = WebSearchNode()
+        read_content = ReadContentNode()
+        synthesize = SynthesizeInfoNode()
+        
+        # Create the agent loop structure
+        # DecideActionNode is the hub that routes to tool nodes
+        decide - "web_search" >> web_search
+        decide - "read_content" >> read_content
+        decide - "synthesize" >> synthesize
+        
+        # All tool nodes return to decide node
+        web_search - "decide" >> decide
+        read_content - "decide" >> decide
+        synthesize - "decide" >> decide
+        
+        # The 'finish' action exits the flow
+        # No explicit connection needed - Flow handles terminal actions
+        
+        # Initialize with decide node as entry point
+        super().__init__(start=decide)
+        
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Prepare the research agent by initializing research template.
+        
+        Args:
+            shared: Shared store containing company_name and optional job_title
+            
+        Returns:
+            Preparation context
+        """
+        # Initialize research template if not present
+        if "company_research" not in shared:
+            shared["company_research"] = {
+                "mission": None,
+                "team_scope": None,
+                "strategic_importance": None,
+                "culture": None,
+                "technology_stack_practices": None,
+                "recent_developments": None,
+                "market_position_growth": None
+            }
+        
+        # Reset iteration counter
+        self.iteration_count = 0
+        
+        return {"max_iterations": self.max_iterations}
+    
+    def get_next_node(self, curr, action):
+        """
+        Override to implement iteration limiting and loop prevention.
+        
+        Args:
+            curr: Current node
+            action: Action returned by current node
+            
+        Returns:
+            Next node or None to terminate
+        """
+        # Increment iteration counter
+        self.iteration_count += 1
+        
+        # Check iteration limit
+        if self.iteration_count >= self.max_iterations:
+            logger.warning(f"Research agent hit maximum iteration limit ({self.max_iterations})")
+            return None
+        
+        # Check for finish action
+        if action == "finish":
+            logger.info(f"Research completed after {self.iteration_count} iterations")
+            return None
+        
+        # Use parent class logic for routing
+        return super().get_next_node(curr, action)
 
 
 # Utility function to create complete application workflow

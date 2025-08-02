@@ -1,10 +1,10 @@
 ---
 id: task-15
 title: Implement DecideActionNode
-status: Completed
+status: Done
 assignee: []
 created_date: '2025-07-31'
-updated_date: '2025-07-31'
+updated_date: '2025-08-01'
 labels: []
 dependencies: []
 ---
@@ -15,19 +15,19 @@ Create the cognitive core node for the company research agent that decides which
 
 ## Acceptance Criteria
 
-- [ ] DecideActionNode class created following Node lifecycle
-- [ ] Complex agent prompt with CONTEXT and ACTION SPACE sections
-- [ ] Prompt includes research template to track progress
-- [ ] Action space defines: web_search read_content synthesize finish
-- [ ] Each action has clear description and parameters
-- [ ] Reasoning process required before action selection
-- [ ] Output format as YAML with thinking and action fields
-- [ ] Node updates research state based on previous actions
-- [ ] Unit tests created for all public methods
-- [ ] Test coverage of at least 80%
-- [ ] Mock-based testing for external dependencies (LLM calls, shared store)
-- [ ] Error cases tested (LLM failures, invalid YAML responses, unknown actions)
-- [ ] Edge cases tested (empty research state, malformed context, action loops)
+- [x] DecideActionNode class created following Node lifecycle
+- [x] Complex agent prompt with CONTEXT and ACTION SPACE sections
+- [x] Prompt includes research template to track progress
+- [x] Action space defines: web_search read_content synthesize finish
+- [x] Each action has clear description and parameters
+- [x] Reasoning process required before action selection
+- [x] Output format as YAML with thinking and action fields
+- [x] Node updates research state based on previous actions
+- [x] Unit tests created for all public methods
+- [x] Test coverage of at least 80%
+- [x] Mock-based testing for external dependencies (LLM calls, shared store)
+- [x] Error cases tested (LLM failures, invalid YAML responses, unknown actions)
+- [x] Edge cases tested (empty research state, malformed context, action loops)
 
 ## Implementation Plan
 
