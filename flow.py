@@ -26,7 +26,9 @@ from nodes import (
     SynthesizeInfoNode,
     SuitabilityScoringNode,
     ExperiencePrioritizationNode,
-    NarrativeStrategyNode
+    NarrativeStrategyNode,
+    CVGenerationNode,
+    CoverLetterNode
 )
 
 logger = logging.getLogger(__name__)
@@ -219,11 +221,13 @@ to create your tailored CV and cover letter.
         return shared
 
 
-class GenerationFlow(Flow):
+class GenerationFlow(BatchFlow):
     """
     Generates final application documents.
     
     Creates tailored CV and cover letter based on narrative strategy.
+    This flow uses BatchFlow to run both generation nodes in parallel
+    for efficiency, since they have independent outputs.
     """
     
     def __init__(self):
@@ -231,10 +235,111 @@ class GenerationFlow(Flow):
         load = LoadCheckpointNode()
         load.set_params({"flow_name": "narrative"})
         
-        # TODO: Add CVGenerationNode
-        # TODO: Add CoverLetterNode
+        # Create generation nodes
+        cv_gen = CVGenerationNode()
+        cover_letter_gen = CoverLetterNode()
+        
+        # Connect load node to both generation nodes (parallel execution)
+        load >> cv_gen
+        load >> cover_letter_gen
         
         super().__init__(start=load)
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate all required inputs are present for generation."""
+        required_fields = [
+            "narrative_strategy",
+            "career_db",
+            "requirements",
+            "job_title", 
+            "company_name"
+        ]
+        
+        missing_fields = [field for field in required_fields if field not in shared]
+        
+        if missing_fields:
+            logger.warning(f"GenerationFlow missing fields: {missing_fields}")
+            
+            # Critical fields that must exist
+            if "narrative_strategy" not in shared:
+                raise ValueError("Cannot generate materials without narrative strategy")
+            if "career_db" not in shared:
+                raise ValueError("Cannot generate materials without career database")
+        
+        # Optional but recommended
+        if "company_research" not in shared:
+            logger.warning("No company research available - cover letter will be generic")
+        
+        if "suitability_assessment" not in shared:
+            logger.warning("No suitability assessment - using defaults")
+            shared["suitability_assessment"] = {
+                "technical_fit_score": 75,
+                "cultural_fit_score": 75,
+                "key_strengths": ["Technical expertise"],
+                "unique_value_proposition": "Strong technical background"
+            }
+        
+        return {"input_validation": "complete"}
+    
+    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: Any) -> Dict[str, Any]:
+        """Validate outputs and log generation summary."""
+        # Check outputs were generated
+        cv_generated = "cv_markdown" in shared and shared["cv_markdown"]
+        letter_generated = "cover_letter_text" in shared and shared["cover_letter_text"]
+        
+        logger.info("=" * 50)
+        logger.info("GENERATION FLOW COMPLETE")
+        logger.info("=" * 50)
+        
+        if cv_generated:
+            cv_lines = shared["cv_markdown"].split('\n')
+            logger.info(f"✓ CV generated: {len(cv_lines)} lines")
+        else:
+            logger.error("✗ CV generation failed")
+        
+        if letter_generated:
+            letter_words = len(shared["cover_letter_text"].split())
+            logger.info(f"✓ Cover letter generated: {letter_words} words")
+        else:
+            logger.error("✗ Cover letter generation failed")
+        
+        # Save final outputs to files
+        if cv_generated and letter_generated:
+            self._save_outputs(shared)
+            logger.info("✓ Materials saved to outputs directory")
+        
+        logger.info("=" * 50)
+        
+        return shared
+    
+    def _save_outputs(self, shared: Dict[str, Any]) -> None:
+        """Save generated materials to output files."""
+        from pathlib import Path
+        import datetime
+        
+        # Create outputs directory
+        output_dir = Path("outputs")
+        output_dir.mkdir(exist_ok=True)
+        
+        # Generate timestamp
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        job_title = shared.get("job_title", "position").replace(" ", "_")
+        company = shared.get("company_name", "company").replace(" ", "_")
+        
+        # Save CV
+        cv_filename = f"{timestamp}_{company}_{job_title}_CV.md"
+        cv_path = output_dir / cv_filename
+        with open(cv_path, 'w') as f:
+            f.write(shared["cv_markdown"])
+        
+        # Save cover letter
+        letter_filename = f"{timestamp}_{company}_{job_title}_CoverLetter.txt"
+        letter_path = output_dir / letter_filename
+        with open(letter_path, 'w') as f:
+            f.write(shared["cover_letter_text"])
+        
+        logger.info(f"  - CV: {cv_filename}")
+        logger.info(f"  - Cover Letter: {letter_filename}")
 
 
 class CompanyResearchAgent(Flow):
