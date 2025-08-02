@@ -4,7 +4,7 @@ title: Implement SuitabilityScoringNode
 status: Completed
 assignee: []
 created_date: '2025-07-31'
-updated_date: '2025-07-31'
+updated_date: '2025-08-02'
 labels: []
 dependencies: []
 ---
@@ -41,3 +41,52 @@ Create a node that performs holistic evaluation of job fit including technical f
 6. Identify critical gaps from analysis
 7. Generate unique value proposition statement
 8. Output complete assessment dictionary
+
+## Implementation Notes & Findings
+
+### Technical Fit Scoring Algorithm
+
+The scoring system was designed to be transparent and predictable:
+
+1. **Score Distribution**:
+   - Required skills: 60% (most important)
+   - Preferred skills: 20% (nice to have)
+   - Other categories (experience/education): 20%
+
+2. **Strength Mapping**:
+   - HIGH strength: 100% of allocated points
+   - MEDIUM strength: 60% of allocated points
+   - LOW strength: 30% of allocated points
+   - Missing/Gap: 0% of allocated points
+
+3. **Key Design Decision**: Used a deterministic calculation for technical fit rather than LLM assessment to ensure consistency and explainability.
+
+### LLM Prompt Design
+
+The prompt adopts a senior hiring manager perspective with structured sections:
+
+1. **Context Section**: Technical fit score, requirement mapping summary, gaps
+2. **Company Context**: Extracted from company research for cultural alignment
+3. **Task Instructions**: Clear focus areas for the LLM to evaluate
+
+### Unique Value Proposition
+
+This was the most challenging aspect - instructing the LLM to identify "rare intersections of skills" that make a candidate special. The prompt specifically asks for combinations that are hard to find in the market.
+
+### Error Handling Strategy
+
+1. **Graceful Degradation**: If LLM fails, return a minimal but valid assessment
+2. **Field Validation**: Check for all required fields and provide sensible defaults
+3. **Logging**: Comprehensive logging of scores and counts for debugging
+
+### Testing Insights
+
+1. **Score Calculation Tests**: Initially failed due to misunderstanding of the scoring math. Each requirement gets equal weight within its category.
+2. **Mock Complexity**: Need to mock both the LLM wrapper and its responses
+3. **Data Structure**: The assessment structure with 6 key fields provides a comprehensive view
+
+### Integration Considerations
+
+- The node expects `requirement_mapping_final` from GapAnalysisNode (not raw mappings)
+- Company research is optional but significantly impacts cultural fit assessment
+- The technical fit score is objective while cultural fit relies on LLM interpretation

@@ -1,0 +1,89 @@
+# Example Company Research YAML
+# This file demonstrates a complete company research output that validates against our schema
+
+company_research:
+  mission: "To accelerate the world's transition to sustainable energy by designing, manufacturing, and selling electric vehicles, energy storage systems, and solar panels"
+  
+  team_scope:
+    team_name: "Autopilot Software Engineering"
+    size: "30+ engineers across perception, planning, and controls"
+    responsibilities:
+      - "Developing neural networks for autonomous driving perception"
+      - "Building planning and control algorithms for vehicle navigation"
+      - "Optimizing inference performance on embedded hardware"
+      - "Creating simulation environments for testing and validation"
+    reports_to: "Director of Autopilot Software"
+  
+  strategic_importance:
+    business_impact: "The Autopilot team is central to achieving full self-driving capability, which represents a multi-billion dollar opportunity and is key to the company's long-term vision of autonomous transportation"
+    growth_trajectory: "Team rapidly expanding as we push towards wider FSD beta release and prepare for robotaxi service launch"
+    innovation_areas:
+      - "End-to-end neural network driving"
+      - "4D reconstruction from video"
+      - "Occupancy networks and planning"
+      - "Hardware-optimized inference"
+  
+  culture:
+    values:
+      - "First principles thinking"
+      - "High urgency and ownership"
+      - "Continuous innovation"
+      - "Mission-driven impact"
+    work_style:
+      remote_policy: "Office-first"
+      collaboration_style: "Intense collaboration with rapid iteration cycles and direct communication"
+      pace: "Extremely fast-paced with aggressive deadlines"
+    employee_experience:
+      satisfaction_indicators:
+        - "Engineers report high impact and learning opportunities"
+        - "Direct access to cutting-edge AI problems"
+        - "Stock compensation highly valued"
+      growth_opportunities: "Rapid skill development in AI/ML, exposure to full-stack autonomous systems"
+  
+  technology_stack_practices:
+    languages:
+      - "Python"
+      - "C++"
+      - "CUDA"
+    frameworks:
+      - "PyTorch"
+      - "Custom neural network compiler"
+      - "Internal simulation framework"
+    infrastructure:
+      - "Massive GPU clusters for training"
+      - "Custom inference chips (FSD computer)"
+      - "Continuous integration with hardware-in-loop testing"
+    practices:
+      - "Continuous deployment to fleet"
+      - "Shadow mode testing"
+      - "Data-driven development"
+      - "Vertical integration"
+  
+  recent_developments:
+    product_launches:
+      - name: "FSD Beta v12"
+        date: "2024-03-01"
+        impact: "First end-to-end neural network driving system"
+      - name: "Hardware 4.0"
+        date: "2023-08-15"
+        impact: "New cameras and compute platform for enhanced capabilities"
+    organizational_changes:
+      - "New VP of AI Infrastructure joined from major tech company"
+      - "Consolidated perception and planning teams"
+      - "Opened new AI training facility"
+    press_coverage:
+      - "Demonstrated latest FSD capabilities to investors"
+      - "Announced timeline for robotaxi service"
+      - "Published research on occupancy networks"
+  
+  market_position_growth:
+    market_position: "Leader in deployed autonomous driving systems"
+    growth_metrics:
+      revenue_growth: "50% YoY automotive revenue"
+      user_growth: "Over 500k vehicles with FSD capability"
+      funding_stage: "Public company with $800B+ market cap"
+    competitive_advantages:
+      - "Largest real-world driving data collection fleet"
+      - "Vertical integration from chips to software"
+      - "Direct customer deployment channel"
+      - "Unified vision-only approach"
