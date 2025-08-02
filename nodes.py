@@ -2354,3 +2354,291 @@ Generate the CV now:"""
                     cv_lines.append(f"- **{category}**: {', '.join(skill_list)}")
         
         return '\n'.join(cv_lines)
+
+
+class CoverLetterNode(Node):
+    """
+    Generates a compelling cover letter following a 5-part structure.
+    
+    This LLM-driven node creates a personalized cover letter using:
+    - Hook: Addresses company need/goal from research
+    - Value Proposition: States unique value using differentiators
+    - Evidence: Provides 2-3 CAR format stories
+    - Company Fit: Demonstrates cultural alignment
+    - Call to Action: Confident and specific next steps
+    """
+    
+    def __init__(self):
+        super().__init__(max_retries=2, wait=1)
+        self.llm = get_default_llm_wrapper()
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Gather all data needed for cover letter generation."""
+        narrative_strategy = shared.get("narrative_strategy", {})
+        company_research = shared.get("company_research", {})
+        suitability_assessment = shared.get("suitability_assessment", {})
+        requirements = shared.get("requirements", {})
+        job_title = shared.get("job_title", "")
+        company_name = shared.get("company_name", "")
+        career_db = shared.get("career_db", {})
+        
+        # Validate required data
+        if not narrative_strategy or narrative_strategy == {}:
+            raise ValueError("No narrative strategy found for cover letter generation")
+        
+        if not company_research or company_research == {}:
+            logger.warning("No company research available - cover letter will be generic")
+            company_research = self._create_generic_company_research(company_name)
+        
+        if not suitability_assessment or suitability_assessment == {}:
+            raise ValueError("No suitability assessment found for cover letter generation")
+        
+        return {
+            "narrative_strategy": narrative_strategy,
+            "company_research": company_research,
+            "suitability_assessment": suitability_assessment,
+            "requirements": requirements,
+            "job_title": job_title,
+            "company_name": company_name,
+            "career_db": career_db
+        }
+    
+    def exec(self, context: Dict[str, Any]) -> str:
+        """Generate cover letter using professional writer prompt."""
+        prompt = self._build_cover_letter_prompt(context)
+        
+        try:
+            cover_letter = self.llm.call_llm_sync(
+                prompt=prompt,
+                max_tokens=2000
+            )
+            
+            # Basic validation
+            if not cover_letter or len(cover_letter) < 300:
+                logger.warning("Generated cover letter seems too short, using fallback")
+                return self._create_fallback_cover_letter(context)
+            
+            # Check for 5-part structure
+            if not self._validate_structure(cover_letter):
+                logger.warning("Cover letter missing required structure, using fallback")
+                return self._create_fallback_cover_letter(context)
+            
+            return cover_letter
+            
+        except Exception as e:
+            logger.error(f"Failed to generate cover letter: {e}")
+            return self._create_fallback_cover_letter(context)
+    
+    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: str) -> str:
+        """Store generated cover letter in shared store."""
+        shared["cover_letter_text"] = exec_res
+        
+        # Log summary
+        word_count = len(exec_res.split())
+        paragraph_count = len([p for p in exec_res.split('\n\n') if p.strip()])
+        
+        logger.info(f"Generated cover letter with {word_count} words in {paragraph_count} paragraphs")
+        
+        # Check for key elements
+        elements = {
+            "Hook": "Dear" in exec_res or "Hiring" in exec_res,
+            "Company mention": shared.get("company_name", "") in exec_res,
+            "Role mention": shared.get("job_title", "") in exec_res,
+            "Call to action": any(phrase in exec_res.lower() for phrase in ["look forward", "excited to", "eager to"])
+        }
+        
+        logger.info(f"Cover letter elements: {sum(elements.values())}/{len(elements)} present")
+        
+        return "cover_letter_generated"
+    
+    def _build_cover_letter_prompt(self, context: Dict[str, Any]) -> str:
+        """Build comprehensive prompt for cover letter generation."""
+        narrative = context["narrative_strategy"]
+        company = context["company_research"]
+        assessment = context["suitability_assessment"]
+        job_title = context["job_title"]
+        company_name = context["company_name"]
+        career_db = context["career_db"]
+        
+        # Extract key elements
+        career_arc = narrative.get("career_arc", {})
+        key_messages = narrative.get("key_messages", [])
+        must_tells = narrative.get("must_tell_experiences", [])
+        differentiators = narrative.get("differentiators", [])
+        evidence_stories = narrative.get("evidence_stories", [])
+        
+        # Get personal info
+        personal = career_db.get("personal_information", {})
+        name = personal.get("name", "Your Name")
+        
+        return f"""You are an expert cover letter writer creating a compelling letter for {job_title} at {company_name}.
+
+NARRATIVE STRATEGY:
+Career Arc:
+- Present: {career_arc.get('present', 'Current role')}
+- Future: {career_arc.get('future', 'Target role')}
+
+Key Messages:
+{chr(10).join(f"- {msg}" for msg in key_messages)}
+
+Differentiators:
+{chr(10).join(f"- {diff}" for diff in differentiators)}
+
+Evidence Stories Available:
+{self._format_evidence_stories(evidence_stories, must_tells)}
+
+COMPANY RESEARCH:
+{self._format_company_research(company)}
+
+SUITABILITY ASSESSMENT:
+Unique Value Proposition: {assessment.get('unique_value_proposition', 'Strong candidate')}
+Technical Fit: {assessment.get('technical_fit_score', 'N/A')}/100
+Cultural Fit: {assessment.get('cultural_fit_score', 'N/A')}/100
+Key Strengths: {', '.join(assessment.get('key_strengths', ['Technical expertise'])[:3])}
+
+COVER LETTER STRUCTURE (MUST FOLLOW):
+
+1. HOOK (Opening Paragraph)
+- Start with company's current need/goal from research
+- Connect to your {career_arc.get('present', 'current expertise')}
+- Mention {job_title} role and why you're writing
+- Use first key message: {key_messages[0] if key_messages else 'Your expertise'}
+
+2. VALUE PROPOSITION (Second Paragraph)
+- State your unique value: "{assessment.get('unique_value_proposition', differentiators[0] if differentiators else 'Your unique value')}"
+- Reference {must_tells[0]['title'] if must_tells else 'your most relevant experience'}
+- Include specific metrics from that experience
+- Connect to company's needs
+
+3. EVIDENCE (Third Paragraph)
+- Tell a CAR story that demonstrates required skills
+- Use evidence story if available, otherwise expand on must-tell experience
+- Show quantified impact
+- Mirror job specification language
+
+4. COMPANY FIT (Fourth Paragraph)
+- Reference specific aspect of company culture: {company.get('culture', ['innovation'])[:1]}
+- Connect to your future vision: {career_arc.get('future', 'career goals')}
+- Show how your differentiator aligns with company values
+- Demonstrate you've done research
+
+5. CALL TO ACTION (Closing Paragraph)
+- Reinforce all 3 key messages succinctly
+- Express enthusiasm for contributing to {company_name}
+- Confident request for interview
+- Professional closing
+
+TONE: Professional yet personable, confident without arrogance, specific not generic
+
+Generate the cover letter now (use "Dear Hiring Manager" for salutation):"""
+    
+    def _format_evidence_stories(self, stories: List[Dict], must_tells: List[Dict]) -> str:
+        """Format evidence stories for prompt context."""
+        if stories:
+            formatted = []
+            for story in stories[:2]:  # Max 2 stories
+                formatted.append(f"- {story.get('title', 'Story')}: {story.get('challenge', '')[:100]}...")
+            return '\n'.join(formatted)
+        elif must_tells:
+            # Use must-tell experiences as backup
+            formatted = []
+            for exp in must_tells[:2]:
+                points = exp.get('key_points', [])
+                if points:
+                    formatted.append(f"- {exp.get('title', 'Experience')}: {points[0]}")
+            return '\n'.join(formatted) if formatted else "- Use experiences from career database"
+        return "- Draw from career database experiences"
+    
+    def _format_company_research(self, research: Dict[str, Any]) -> str:
+        """Format company research for prompt."""
+        sections = []
+        
+        if research.get("mission"):
+            sections.append(f"Mission: {research['mission'][:200]}")
+        
+        if research.get("culture"):
+            sections.append(f"Culture: {', '.join(research['culture'][:3])}")
+        
+        if research.get("strategic_importance"):
+            sections.append(f"Role Importance: {research['strategic_importance'][:200]}")
+        
+        if research.get("recent_developments"):
+            sections.append(f"Recent: {', '.join(research['recent_developments'][:2])}")
+        
+        return '\n'.join(sections) if sections else "Limited company information available"
+    
+    def _validate_structure(self, cover_letter: str) -> bool:
+        """Validate cover letter has required 5-part structure."""
+        # Simple validation - check for reasonable paragraph count
+        paragraphs = [p for p in cover_letter.split('\n\n') if p.strip()]
+        
+        # Should have at least 5 paragraphs (can have more with address/date)
+        if len(paragraphs) < 5:
+            return False
+        
+        # Check for key elements
+        has_greeting = any(p.startswith(("Dear", "To", "Hello")) for p in paragraphs)
+        has_closing = any(any(closing in p for closing in ["Sincerely", "Best regards", "Kind regards"]) for p in paragraphs[-2:])
+        
+        return has_greeting and has_closing
+    
+    def _create_generic_company_research(self, company_name: str) -> Dict[str, Any]:
+        """Create generic company research when none available."""
+        return {
+            "mission": f"To be a leader in the industry",
+            "culture": ["innovation", "collaboration", "excellence"],
+            "strategic_importance": "This role is critical for the company's growth",
+            "recent_developments": ["expanding operations", "investing in technology"]
+        }
+    
+    def _create_fallback_cover_letter(self, context: Dict[str, Any]) -> str:
+        """Create a basic cover letter if generation fails."""
+        narrative = context["narrative_strategy"]
+        assessment = context["suitability_assessment"]
+        job_title = context["job_title"]
+        company_name = context["company_name"]
+        career_db = context["career_db"]
+        
+        personal = career_db.get("personal_information", {})
+        name = personal.get("name", "Your Name")
+        
+        career_arc = narrative.get("career_arc", {})
+        key_messages = narrative.get("key_messages", ["Strong technical skills", "Proven track record", "Ready to contribute"])
+        differentiators = narrative.get("differentiators", ["Unique combination of skills"])
+        must_tells = narrative.get("must_tell_experiences", [])
+        
+        # Build fallback letter
+        letter_parts = [
+            "Dear Hiring Manager,",
+            "",
+            # Hook
+            f"As a {career_arc.get('present', 'experienced professional')}, I was excited to discover the {job_title} opportunity at {company_name}. {key_messages[0]}.",
+            "",
+            # Value Proposition
+            f"I offer {assessment.get('unique_value_proposition', differentiators[0] if differentiators else 'strong technical expertise')}. "
+            f"In my recent role {must_tells[0]['title'] if must_tells else 'in my current position'}, "
+            f"I {must_tells[0]['key_points'][0] if must_tells and must_tells[0].get('key_points') else 'delivered significant results'}.",
+            "",
+            # Evidence
+            f"Throughout my career, I have consistently {key_messages[1]}. "
+            f"For example, {must_tells[1]['key_points'][0] if len(must_tells) > 1 and must_tells[1].get('key_points') else 'I have led successful projects'}. "
+            f"This experience directly aligns with your requirements.",
+            "",
+            # Company Fit
+            f"I am particularly drawn to {company_name}'s commitment to innovation and growth. "
+            f"{career_arc.get('future', 'I am ready to bring my expertise to your team')}. "
+            f"My {differentiators[0] if differentiators else 'unique background'} would add valuable perspective to your team.",
+            "",
+            # Call to Action
+            f"I am confident that my combination of {key_messages[0] if len(key_messages) > 0 else 'technical expertise'}, "
+            f"{key_messages[1] if len(key_messages) > 1 else 'proven leadership'}, "
+            f"and {key_messages[2] if len(key_messages) > 2 else 'delivery excellence'} "
+            f"makes me an ideal candidate for this role. I would welcome the opportunity to discuss how I can contribute to {company_name}'s continued success.",
+            "",
+            "Thank you for your consideration. I look forward to speaking with you soon.",
+            "",
+            "Sincerely,",
+            name
+        ]
+        
+        return '\n'.join(letter_parts)

@@ -46,6 +46,7 @@ Define the structure for the narrative strategy output including career arc, key
 ### Schema Design
 
 Created comprehensive YAML schema (`schemas/narrative_strategy_schema.yaml`) with:
+
 - **5 required top-level fields**: must_tell_experiences, differentiators, career_arc, key_messages, evidence_stories
 - **Strict constraints**: 2-3 must-tell experiences, 1-2 differentiators, exactly 3 key messages, 0-2 evidence stories
 - **Detailed substructures**: CAR format for stories, past/present/future for career arc
@@ -54,6 +55,7 @@ Created comprehensive YAML schema (`schemas/narrative_strategy_schema.yaml`) wit
 ### Validation Implementation
 
 Built robust Python validator (`utils/narrative_strategy_validator.py`) with:
+
 - **Field-level validation**: Type checking, length constraints, required fields
 - **Nested validation**: Validates substructures like key_points arrays
 - **Integration checks**: Ensures compatibility with CV/cover letter generation
@@ -63,6 +65,7 @@ Built robust Python validator (`utils/narrative_strategy_validator.py`) with:
 ### Example Creation
 
 Developed comprehensive example (`examples/narrative_strategy_example.yaml`) showing:
+
 - **Senior Platform Engineer** narrative with all fields populated
 - **3 must-tell experiences** with clear selection rationale
 - **2 differentiators** highlighting rare skill combinations
@@ -72,6 +75,7 @@ Developed comprehensive example (`examples/narrative_strategy_example.yaml`) sho
 ### Integration Documentation
 
 Created integration guide (`docs/narrative_strategy_integration.md`) explaining:
+
 - **Cover letter mapping**: Each component maps to specific paragraphs
 - **CV section mapping**: How narrative drives CV structure
 - **Priority system**: Must-tell experiences featured prominently
@@ -80,6 +84,7 @@ Created integration guide (`docs/narrative_strategy_integration.md`) explaining:
 ### Testing Coverage
 
 Comprehensive test suite (15 tests) covering:
+
 - **Valid structure validation**: Ensures good data passes
 - **Constraint enforcement**: Min/max items, field lengths
 - **Type validation**: Lists vs dicts, strings vs other types
@@ -114,6 +119,7 @@ Comprehensive test suite (15 tests) covering:
 ### Integration Points
 
 The narrative strategy serves as the bridge between:
+
 - **Analysis outputs** (requirements mapping, gaps, suitability)
 - **Document generation** (CV, cover letter)
 - **User customization** (checkpoint editing)

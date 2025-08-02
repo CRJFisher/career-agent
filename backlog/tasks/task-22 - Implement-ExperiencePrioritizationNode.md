@@ -47,6 +47,7 @@ Create a pure Python node that scores and ranks all career experiences using wei
 ### Pure Python Implementation
 
 Successfully implemented a deterministic scoring algorithm without any LLM calls:
+
 - Used weighted scoring with exact percentages: relevance (40%), recency (20%), impact (20%), uniqueness (10%), growth (10%)
 - All scoring functions return values 0-100 for consistency
 - Composite score is calculated as weighted sum, ensuring reproducible results
@@ -84,6 +85,7 @@ Successfully implemented a deterministic scoring algorithm without any LLM calls
 ### Data Processing
 
 The node processes three types of experiences:
+
 1. **Professional Experience**: All entries from career_db["professional_experience"]
 2. **Projects**: All entries from career_db["projects"]
 3. **Education**: Only included if has achievements or projects
@@ -91,6 +93,7 @@ The node processes three types of experiences:
 ### Text Extraction
 
 Implemented recursive text extraction that:
+
 - Concatenates all string fields
 - Flattens lists of strings
 - Recursively extracts from nested dictionaries
@@ -106,6 +109,7 @@ Implemented recursive text extraction that:
 ### Output Format
 
 The prioritized_experiences list contains:
+
 ```python
 {
     "rank": 1,  # 1-based ranking
@@ -126,6 +130,7 @@ The prioritized_experiences list contains:
 ### Testing Coverage
 
 Created 18 comprehensive tests covering:
+
 - Weight validation (sum to 1.0)
 - Individual scoring functions
 - Composite score calculation

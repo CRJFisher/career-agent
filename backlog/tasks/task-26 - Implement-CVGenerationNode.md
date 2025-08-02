@@ -47,6 +47,7 @@ Create a node that generates a tailored CV in GitHub-flavored Markdown format ba
 ### Node Architecture
 
 Successfully implemented CVGenerationNode as an LLM-driven node that:
+
 - Takes narrative strategy as the primary guide for CV structure
 - Draws detailed data from career database for accuracy
 - Uses job requirements for keyword optimization
@@ -55,6 +56,7 @@ Successfully implemented CVGenerationNode as an LLM-driven node that:
 ### Prompt Design
 
 The CV generation prompt includes:
+
 1. **Role**: Expert resume writer specializing in technical roles
 2. **Context**: Target job title and company name
 3. **Narrative Strategy**: All 5 components (must-tells, differentiators, arc, messages, stories)
@@ -88,6 +90,7 @@ The CV generation prompt includes:
 ### Markdown Format
 
 The generated CV follows GitHub-flavored Markdown with:
+
 - `#` for name (H1)
 - `##` for major sections (H2)
 - `###` for job titles (H3)
@@ -98,6 +101,7 @@ The generated CV follows GitHub-flavored Markdown with:
 ### Testing Coverage
 
 Created 19 comprehensive tests covering:
+
 - Input validation (narrative strategy, career database)
 - Prompt content verification (all elements included)
 - Must-tell experience prioritization
@@ -116,6 +120,7 @@ Created 19 comprehensive tests covering:
 ### Integration Points
 
 The node integrates with:
+
 - **NarrativeStrategyNode**: Reads narrative_strategy for prioritization
 - **Career Database**: Reads career_db for detailed experience data
 - **Requirements**: Uses requirements for keyword optimization

@@ -47,6 +47,7 @@ Create an LLM-driven node that synthesizes a complete narrative strategy includi
 ### LLM-Driven Strategy Synthesis
 
 Successfully implemented an expert career coach node that:
+
 - Takes prioritized experiences from ExperiencePrioritizationNode
 - Incorporates suitability assessment insights
 - Generates comprehensive narrative strategy in one LLM call
@@ -55,11 +56,13 @@ Successfully implemented an expert career coach node that:
 ### Prompt Design
 
 The prompt adopts an expert career coach perspective with:
+
 1. **Context Section**: Job details, suitability scores, and top 5 prioritized experiences
 2. **Task Instructions**: Clear guidance for each narrative component
 3. **Output Format**: Structured YAML with examples for each section
 
 Key prompt elements:
+
 - Shows experience scores (composite, relevance, impact) to guide selection
 - Emphasizes rare skill combinations for differentiators
 - Requires past→present→future career arc structure
@@ -101,6 +104,7 @@ Key prompt elements:
 ### Error Handling
 
 Robust fallback strategy ensures node always produces valid output:
+
 - Uses top 3 experiences for must-tells
 - Extracts differentiators from suitability assessment
 - Provides generic but reasonable career arc
@@ -109,6 +113,7 @@ Robust fallback strategy ensures node always produces valid output:
 ### Field Validation
 
 Post-LLM validation ensures all required fields are present:
+
 - Missing must-tell experiences → uses top 3 prioritized
 - Missing differentiators → extracts from unique value proposition
 - Missing career arc → provides template based on job title
@@ -118,6 +123,7 @@ Post-LLM validation ensures all required fields are present:
 ### Testing Coverage
 
 Created 17 comprehensive tests covering:
+
 - Input validation (missing data)
 - Prompt content verification
 - Experience selection logic

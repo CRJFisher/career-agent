@@ -45,6 +45,7 @@ Create a workflow that chains ExperiencePrioritizationNode and NarrativeStrategy
 9. Return final narrative strategy after user review
 
 ## Dependencies
+
 - SaveCheckpointNode (task-42)
 - LoadCheckpointNode (task-43)
 
@@ -53,13 +54,14 @@ Create a workflow that chains ExperiencePrioritizationNode and NarrativeStrategy
 ### Flow Architecture
 
 Successfully implemented NarrativeFlow that chains three nodes:
+
 1. **ExperiencePrioritizationNode**: Scores and ranks experiences (pure Python)
 2. **NarrativeStrategyNode**: Synthesizes narrative strategy (LLM-driven)
 3. **SaveCheckpointNode**: Saves checkpoint for user review
 
 ### Key Design Decisions
 
-1. **Checkpoint Configuration**: 
+1. **Checkpoint Configuration**:
    - Saves key data fields: prioritized_experiences, narrative_strategy, suitability_assessment, requirements, job_title, company_name
    - Output file: `narrative_output.yaml` with user-friendly message
    - Flow pauses after checkpoint save (returns "pause" action)
@@ -78,6 +80,7 @@ Successfully implemented NarrativeFlow that chains three nodes:
 ### Testing Approach
 
 Created comprehensive test suite (14 tests) covering:
+
 - Flow initialization and node types
 - Checkpoint configuration verification
 - Input validation with missing fields
@@ -87,6 +90,7 @@ Created comprehensive test suite (14 tests) covering:
 ### PocketFlow Integration
 
 Key learnings about PocketFlow:
+
 - Doesn't expose internal graph structure (edges)
 - Handles flow execution automatically
 - Tests must work with public API only
@@ -106,6 +110,7 @@ Key learnings about PocketFlow:
 ### User Experience
 
 The flow provides excellent user experience:
+
 - Clear message about what can be edited
 - Lists all editable narrative elements
 - Mentions next steps (generation flow)
