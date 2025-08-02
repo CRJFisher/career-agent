@@ -1500,6 +1500,273 @@ class ExperiencePrioritizationNode(Node):
         return " ".join(text_parts)
 
 
+class NarrativeStrategyNode(Node):
+    """
+    Synthesizes a complete narrative strategy for job applications.
+    
+    This LLM-driven node acts as an expert career coach, taking prioritized
+    experiences and suitability assessment to craft a compelling narrative
+    including must-tell experiences, differentiators, career arc, key messages,
+    and detailed evidence stories in CAR format.
+    """
+    
+    def __init__(self):
+        super().__init__(max_retries=2, wait=1)
+        self.llm = get_default_llm_wrapper()
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Gather prioritized experiences and suitability assessment."""
+        prioritized_experiences = shared.get("prioritized_experiences", [])
+        suitability_assessment = shared.get("suitability_assessment", {})
+        requirements = shared.get("requirements", {})
+        
+        if not prioritized_experiences:
+            raise ValueError("No prioritized experiences found for narrative strategy")
+        
+        if not suitability_assessment:
+            raise ValueError("No suitability assessment found for narrative strategy")
+        
+        # Get job details
+        job_title = shared.get("job_title", "")
+        company_name = shared.get("company_name", "")
+        
+        return {
+            "prioritized_experiences": prioritized_experiences,
+            "suitability_assessment": suitability_assessment,
+            "requirements": requirements,
+            "job_title": job_title,
+            "company_name": company_name
+        }
+    
+    def exec(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate narrative strategy using LLM."""
+        prompt = self._build_narrative_prompt(context)
+        
+        try:
+            narrative_strategy = self.llm.call_llm_structured_sync(
+                prompt=prompt,
+                yaml_format=True,
+                model="claude-3-opus"
+            )
+            
+            # Validate narrative structure
+            required_fields = [
+                "must_tell_experiences",
+                "differentiators", 
+                "career_arc",
+                "key_messages",
+                "evidence_stories"
+            ]
+            
+            for field in required_fields:
+                if field not in narrative_strategy:
+                    logger.warning(f"Missing required field in narrative strategy: {field}")
+                    if field == "must_tell_experiences":
+                        # Default to top 3 experiences
+                        narrative_strategy[field] = [
+                            self._summarize_experience(exp)
+                            for exp in context["prioritized_experiences"][:3]
+                        ]
+                    elif field == "differentiators":
+                        # Extract from suitability assessment
+                        narrative_strategy[field] = context["suitability_assessment"].get(
+                            "unique_value_proposition", "Strong technical background"
+                        ).split(".")[:2]
+                    elif field == "career_arc":
+                        narrative_strategy[field] = {
+                            "past": "Built strong technical foundation",
+                            "present": "Leading complex projects",
+                            "future": f"Ready to excel as {context['job_title']}"
+                        }
+                    elif field == "key_messages":
+                        narrative_strategy[field] = [
+                            "Strong technical skills match requirements",
+                            "Proven track record of delivery",
+                            "Ready to contribute immediately"
+                        ]
+                    elif field == "evidence_stories":
+                        narrative_strategy[field] = []
+            
+            return narrative_strategy
+            
+        except Exception as e:
+            logger.error(f"Failed to generate narrative strategy: {e}")
+            # Return minimal strategy on error
+            return self._create_fallback_strategy(context)
+    
+    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: Dict[str, Any]) -> str:
+        """Store narrative strategy in shared store."""
+        shared["narrative_strategy"] = exec_res
+        
+        logger.info("Narrative strategy complete:")
+        logger.info(f"  Must-tell experiences: {len(exec_res.get('must_tell_experiences', []))}")
+        logger.info(f"  Differentiators: {len(exec_res.get('differentiators', []))}")
+        logger.info(f"  Key messages: {len(exec_res.get('key_messages', []))}")
+        logger.info(f"  Evidence stories: {len(exec_res.get('evidence_stories', []))}")
+        
+        return "narrative"
+    
+    def _build_narrative_prompt(self, context: Dict[str, Any]) -> str:
+        """Build prompt for narrative strategy generation."""
+        # Get top 5 experiences for context
+        top_experiences = []
+        for exp in context["prioritized_experiences"][:5]:
+            top_experiences.append({
+                "title": exp["title"],
+                "score": exp["composite_score"],
+                "relevance": exp["scores"]["relevance"],
+                "impact": exp["scores"]["impact"],
+                "summary": self._summarize_experience_data(exp["data"])
+            })
+        
+        return f"""You are an expert career coach and storytelling strategist helping craft a compelling job application narrative.
+
+## Context
+Position: {context['job_title']} at {context['company_name']}
+
+## Suitability Assessment Summary
+Technical Fit: {context['suitability_assessment'].get('technical_fit_score', 'N/A')}/100
+Cultural Fit: {context['suitability_assessment'].get('cultural_fit_score', 'N/A')}/100
+Key Strengths: {', '.join(context['suitability_assessment'].get('key_strengths', [])[:3])}
+Unique Value: {context['suitability_assessment'].get('unique_value_proposition', 'N/A')[:200]}...
+
+## Top Prioritized Experiences
+{self._format_top_experiences(top_experiences)}
+
+## Your Task
+Create a comprehensive narrative strategy that tells a compelling career story. Focus on:
+
+1. **Must-Tell Experiences**: Select 2-3 experiences that MUST be highlighted
+   - Choose highest impact + relevance combinations
+   - Ensure they demonstrate required skills
+   - Show progression and growth
+
+2. **Differentiators**: Identify 1-2 unique experiences or combinations
+   - What makes this candidate special?
+   - Rare skill intersections
+   - Unique perspectives or achievements
+
+3. **Career Arc**: Craft the overall story (past → present → future)
+   - Where they started and foundational skills
+   - Current expertise and leadership
+   - Future potential in this role
+
+4. **Key Messages**: Define 3 concise messages to reinforce throughout
+   - Core value propositions
+   - Address any concerns proactively
+   - Align with company needs
+
+5. **Evidence Stories**: Create 1-2 detailed CAR format stories
+   - Challenge: Specific situation and stakes
+   - Action: What they did (skills demonstrated)
+   - Result: Quantified impact and learning
+
+Respond in YAML format:
+```yaml
+must_tell_experiences:
+  - title: <Experience title>
+    reason: <Why this is must-tell>
+    key_points:
+      - <Specific achievement or skill demonstration>
+      - <Another key point>
+  # 2-3 total experiences
+
+differentiators:
+  - <Unique aspect that sets them apart>
+  - <Another differentiator>
+
+career_arc:
+  past: <Foundation and early growth>
+  present: <Current expertise and leadership>
+  future: <Vision for role and contribution>
+
+key_messages:
+  - <Concise value proposition>
+  - <Address concern or highlight strength>
+  - <Alignment with company needs>
+
+evidence_stories:
+  - title: <Story title>
+    challenge: |
+      <Detailed situation description including context,
+       stakes, and why it was challenging>
+    action: |
+      <Specific actions taken, skills used, approach,
+       collaboration, innovation demonstrated>
+    result: |
+      <Quantified outcomes, impact, recognition,
+       learning, and lasting changes>
+    skills_demonstrated:
+      - <Skill 1>
+      - <Skill 2>
+  # 1-2 stories total
+```"""
+    
+    def _format_top_experiences(self, experiences: List[Dict]) -> str:
+        """Format top experiences for prompt."""
+        formatted = []
+        for i, exp in enumerate(experiences, 1):
+            formatted.append(
+                f"{i}. {exp['title']} (Score: {exp['score']:.1f}, "
+                f"Relevance: {exp['relevance']:.0f}%, Impact: {exp['impact']:.0f}%)"
+                f"\n   {exp['summary'][:150]}..."
+            )
+        return "\n".join(formatted)
+    
+    def _summarize_experience_data(self, exp_data: Dict[str, Any]) -> str:
+        """Create brief summary of experience."""
+        parts = []
+        
+        if "company" in exp_data:
+            parts.append(f"at {exp_data['company']}")
+        
+        if "achievements" in exp_data and exp_data["achievements"]:
+            parts.append(f"Key: {exp_data['achievements'][0]}")
+        elif "description" in exp_data:
+            parts.append(exp_data["description"][:100])
+        
+        if "technologies" in exp_data and exp_data["technologies"]:
+            parts.append(f"Tech: {', '.join(exp_data['technologies'][:3])}")
+        
+        return " | ".join(parts)
+    
+    def _summarize_experience(self, exp: Dict[str, Any]) -> Dict[str, Any]:
+        """Summarize a prioritized experience for fallback."""
+        return {
+            "title": exp["title"],
+            "reason": f"High relevance ({exp['scores']['relevance']:.0f}%) and impact",
+            "key_points": [
+                "Demonstrates required skills",
+                "Shows significant impact"
+            ]
+        }
+    
+    def _create_fallback_strategy(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Create minimal narrative strategy as fallback."""
+        top_exps = context["prioritized_experiences"][:3]
+        
+        return {
+            "must_tell_experiences": [
+                self._summarize_experience(exp) for exp in top_exps
+            ],
+            "differentiators": [
+                "Strong technical background",
+                "Proven delivery track record"
+            ],
+            "career_arc": {
+                "past": "Built strong technical foundation",
+                "present": "Leading complex technical projects",
+                "future": f"Ready to excel as {context['job_title']}"
+            },
+            "key_messages": [
+                "Technical skills align with requirements",
+                "Demonstrated impact in similar roles",
+                "Cultural fit with company values"
+            ],
+            "evidence_stories": []
+        }
+
+
 class SuitabilityScoringNode(Node):
     """
     Performs holistic evaluation of job fit from a hiring manager perspective.
