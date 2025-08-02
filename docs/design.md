@@ -61,6 +61,15 @@ Central data store containing:
 - Checkpoint files (for pause/resume)
 - Document sources metadata
 
+**Data Contract**: The complete shared store data contract is documented in [shared_store_data_contract.md](shared_store_data_contract.md), which defines:
+- All keys and their data types
+- Producer flows (which flow creates each data element)
+- Consumer flows (which flows use each data element)
+- Validation rules and constraints
+- Required fields for each flow
+
+The shared store serves as the central nervous system enabling communication between all phases, with strict type checking and validation to ensure data integrity.
+
 ## Data Flow
 
 ```txt
@@ -142,3 +151,5 @@ Users can restart the workflow from any major flow by providing:
 - Clear separation between orchestration and business logic
 - Checkpoint files stored in `checkpoints/` directory
 - User-editable outputs in `outputs/` directory
+- Shared store validation enforced through `utils/shared_store_validator.py`
+- Complete data contract defined in `docs/shared_store_data_contract.md`
