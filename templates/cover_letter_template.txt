@@ -1,0 +1,121 @@
+# Cover Letter Template
+
+{Your Name}
+{Your Address}
+{City, State ZIP}
+{Your Email}
+{Your Phone Number}
+{Date}
+
+{Hiring Manager's Name}
+{Hiring Manager's Title}
+{Company Name}
+{Company Address}
+{City, State ZIP}
+
+Dear {Hiring Manager's Name / Hiring Team},
+
+{Opening Paragraph - The Hook}
+I am writing to express my strong interest in the {Position Title} role at {Company Name}. {Compelling opening that demonstrates knowledge of company/role and immediately establishes relevance}. {Brief statement of most relevant qualification that aligns with their primary need}.
+
+{Body Paragraph 1 - Relevant Experience & Achievements}
+{Specific example from recent experience that directly relates to job requirements}. {Quantifiable achievement that demonstrates impact}. {How this experience has prepared you for their specific challenges}. {Connection to company's current initiatives or goals}.
+
+{Body Paragraph 2 - Technical/Domain Expertise}
+{Highlight specific technical skills or domain knowledge they're seeking}. {Brief example of applying these skills to solve a relevant problem}. {Additional complementary skills that add value}. {How your expertise aligns with their tech stack or methodologies}.
+
+{Body Paragraph 3 - Cultural Fit & Unique Value}
+{What attracts you to their mission/culture/values}. {Unique perspective or experience you bring}. {How you'll contribute to team/company goals}. {Specific interest in their products/services/impact}.
+
+{Closing Paragraph - Call to Action}
+{Reiterate enthusiasm and fit for role}. {Mention any additional materials (portfolio, references)}. {Express interest in discussing further}. {Professional closing statement}.
+
+Sincerely,
+{Your Name}
+
+---
+
+# Cover Letter Header Variations
+
+## Standard Format
+John Smith
+123 Main Street
+San Francisco, CA 94102
+john.smith@email.com
+(555) 123-4567
+January 15, 2024
+
+Sarah Johnson
+Engineering Manager
+TechCorp Inc.
+456 Market Street
+San Francisco, CA 94103
+
+## Email-Friendly Format (No Physical Addresses)
+John Smith
+john.smith@email.com | (555) 123-4567 | LinkedIn: /in/johnsmith
+
+January 15, 2024
+
+TechCorp Inc. Hiring Team
+Re: Senior Software Engineer Position
+
+## Modern Minimal Format
+John Smith | john.smith@email.com | (555) 123-4567
+
+January 15, 2024
+
+Dear TechCorp Hiring Team,
+
+---
+
+# Salutation Guidelines
+
+## When You Have a Name
+- Dear Ms. Johnson,
+- Dear Mr. Smith,
+- Dear Dr. Williams,
+- Dear Alex Chen, (if unsure of preferred title)
+
+## When You Don't Have a Name
+- Dear Hiring Manager,
+- Dear [Department] Hiring Team,
+- Dear [Company Name] Recruiting Team,
+- Dear Talent Acquisition Team,
+
+## Avoid These
+- To Whom It May Concern (too formal/outdated)
+- Dear Sir/Madam (assumes gender)
+- Hey/Hi (too casual)
+- No salutation (appears careless)
+
+---
+
+# ATS-Friendly Formatting Rules
+
+1. **Plain Text Format**: No tables, columns, or special formatting
+2. **Standard Fonts**: Use system fonts (Arial, Times New Roman, Calibri)
+3. **Clear Sections**: Use line breaks between paragraphs
+4. **No Headers/Footers**: Keep contact info in main body
+5. **Simple Bullets**: Use hyphens (-) instead of special bullet characters
+6. **Standard Characters**: Avoid emojis, symbols, or special characters
+7. **File Name**: FirstName_LastName_CoverLetter_CompanyName.txt
+
+---
+
+# Length Guidelines
+
+- **Total Length**: 250-400 words (one page)
+- **Opening**: 2-3 sentences
+- **Body Paragraphs**: 3-4 sentences each
+- **Closing**: 2-3 sentences
+- **Line Spacing**: Single space with blank line between paragraphs
+
+---
+
+# File Format Recommendations
+
+1. **.txt**: Maximum ATS compatibility
+2. **.docx**: Good compatibility, allows basic formatting
+3. **.pdf**: Use only if specifically requested
+4. **Avoid**: .pages, .odt, .rtf, or image formats

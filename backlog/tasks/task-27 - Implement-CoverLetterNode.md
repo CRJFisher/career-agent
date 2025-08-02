@@ -47,6 +47,7 @@ Create a node that generates a compelling cover letter following the user-specif
 ### Node Architecture
 
 Successfully implemented CoverLetterNode as an LLM-driven node that:
+
 - Follows strict 5-part structure (Hook, Value Prop, Evidence, Company Fit, CTA)
 - Integrates narrative strategy, company research, and suitability assessment
 - Handles missing company research gracefully with generic fallback
@@ -87,6 +88,7 @@ Successfully implemented CoverLetterNode as an LLM-driven node that:
 ### Prompt Design Features
 
 The prompt includes:
+
 - **Role Definition**: Expert cover letter writer
 - **Complete Context**: All narrative, research, and assessment data
 - **Structured Instructions**: Detailed requirements for each paragraph
@@ -112,6 +114,7 @@ The prompt includes:
 ### Fallback Strategy
 
 Robust fallback cover letter ensures output even on LLM failure:
+
 - Uses all narrative strategy components
 - Follows 5-part structure
 - Handles missing/empty data gracefully
@@ -120,6 +123,7 @@ Robust fallback cover letter ensures output even on LLM failure:
 ### Testing Coverage
 
 Created 20 comprehensive tests covering:
+
 - Input validation (narrative, assessment required)
 - Company research handling (missing, generic)
 - Prompt content verification
@@ -131,6 +135,7 @@ Created 20 comprehensive tests covering:
 ### Integration Points
 
 The node integrates with:
+
 - **NarrativeStrategyNode**: Uses all 5 narrative components
 - **CompanyResearchAgent**: Incorporates mission, culture, importance
 - **SuitabilityScoringNode**: Uses UVP and fit scores

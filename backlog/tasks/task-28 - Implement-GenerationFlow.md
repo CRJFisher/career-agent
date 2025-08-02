@@ -47,6 +47,7 @@ Create a workflow containing CVGenerationNode and CoverLetterNode to produce fin
 ### Flow Architecture
 
 Successfully implemented GenerationFlow using PocketFlow's BatchFlow for parallel execution:
+
 - Inherits from BatchFlow to enable parallel node execution
 - Starts with LoadCheckpointNode to load narrative strategy from checkpoint
 - CVGenerationNode and CoverLetterNode run in parallel after loading
@@ -63,7 +64,7 @@ Successfully implemented GenerationFlow using PocketFlow's BatchFlow for paralle
 ### Implementation Features
 
 1. **Input Validation**:
-   - Validates required fields (narrative_strategy, career_db) 
+   - Validates required fields (narrative_strategy, career_db)
    - Adds default suitability assessment if missing
    - Warns about missing company research
 
@@ -81,6 +82,7 @@ Successfully implemented GenerationFlow using PocketFlow's BatchFlow for paralle
 ### Testing Strategy
 
 Created 20 comprehensive tests covering:
+
 - Flow initialization and BatchFlow inheritance
 - Input validation (required vs optional fields)
 - Output validation and file saving
@@ -91,6 +93,7 @@ Created 20 comprehensive tests covering:
 ### Integration Points
 
 GenerationFlow integrates with:
+
 - **LoadCheckpointNode**: Loads narrative checkpoint data
 - **CVGenerationNode**: Generates tailored CV in Markdown
 - **CoverLetterNode**: Generates 5-part cover letter
@@ -99,6 +102,7 @@ GenerationFlow integrates with:
 ### Parallel Execution Design
 
 The parallel execution pattern:
+
 1. LoadCheckpointNode runs first, loading all narrative data
 2. Both CVGenerationNode and CoverLetterNode receive "checkpoint_loaded" action
 3. PocketFlow's BatchFlow executes both generation nodes simultaneously
@@ -107,6 +111,7 @@ The parallel execution pattern:
 ### Output File Structure
 
 Files saved as:
+
 ```
 outputs/
 ├── 20240115_120000_InnovateTech_Senior_Platform_Engineer_CV.md

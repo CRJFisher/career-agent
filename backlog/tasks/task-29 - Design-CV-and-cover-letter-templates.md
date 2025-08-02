@@ -1,10 +1,10 @@
 ---
 id: task-29
 title: Design CV and cover letter templates
-status: To Do
+status: Complete
 assignee: []
 created_date: '2025-07-31'
-updated_date: '2025-07-31'
+updated_date: '2025-08-02'
 labels: []
 dependencies: []
 ---
