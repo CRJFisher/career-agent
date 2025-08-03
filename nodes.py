@@ -3153,3 +3153,613 @@ Return as structured YAML matching the career database schema."""
             logger.warning(f"Failed to extract from {failed_extractions} documents")
         
         return "continue"
+
+
+class BuildDatabaseNode(Node):
+    """Builds structured career database from extracted experiences."""
+    
+    def prep(self, shared: dict) -> dict:
+        """Prepare extracted experiences for processing."""
+        return {
+            "extracted_experiences": shared.get("extracted_experiences", []),
+            "existing_database": shared.get("existing_career_database"),
+            "output_path": shared.get("database_output_path", "career_database.yaml"),
+            "merge_strategy": shared.get("merge_strategy", "smart")  # smart, replace, append
+        }
+    
+    def exec(self, prep_res: dict) -> dict:
+        """Build and deduplicate career database."""
+        from utils.database_parser import validate_with_schema, save_career_database
+        from datetime import datetime
+        import re
+        
+        # 1. Aggregate all experiences from extracted documents
+        all_data = self._aggregate_extractions(prep_res["extracted_experiences"])
+        
+        # 2. Deduplicate and merge experiences
+        deduped_data = self._deduplicate_data(all_data)
+        
+        # 3. Structure into career database format
+        career_db = self._build_database(deduped_data)
+        
+        # 4. Merge with existing database if provided
+        if prep_res["existing_database"]:
+            career_db = self._merge_with_existing(
+                career_db, 
+                prep_res["existing_database"], 
+                prep_res["merge_strategy"]
+            )
+        
+        # 5. Clean and standardize data
+        career_db = self._clean_database(career_db)
+        
+        # 6. Validate against schema
+        validation_errors = validate_with_schema(career_db)
+        
+        # 7. Generate summary report
+        summary = self._generate_summary(
+            career_db, 
+            prep_res["extracted_experiences"],
+            validation_errors
+        )
+        
+        return {
+            "career_database": career_db,
+            "summary": summary,
+            "validation_errors": validation_errors
+        }
+    
+    def _aggregate_extractions(self, extracted_experiences):
+        """Aggregate all extracted data from multiple documents."""
+        aggregated = {
+            "personal_info": {},
+            "experiences": [],
+            "education": [],
+            "skills": {
+                "technical": set(),
+                "soft": set(),
+                "languages": set(),
+                "tools": set(),
+                "frameworks": set(),
+                "methodologies": set()
+            },
+            "projects": [],
+            "certifications": [],
+            "publications": [],
+            "awards": []
+        }
+        
+        for extraction in extracted_experiences:
+            # Skip failed extractions
+            if extraction.get("extraction_confidence", 0) < 0.3:
+                continue
+            
+            # Aggregate personal info (prefer non-empty values)
+            if extraction.get("personal_info"):
+                for key, value in extraction["personal_info"].items():
+                    if value and (not aggregated["personal_info"].get(key) or len(str(value)) > len(str(aggregated["personal_info"].get(key, "")))):
+                        aggregated["personal_info"][key] = value
+            
+            # Collect experiences
+            aggregated["experiences"].extend(extraction.get("experiences", []))
+            
+            # Collect education
+            aggregated["education"].extend(extraction.get("education", []))
+            
+            # Aggregate skills (using sets to avoid duplicates)
+            if extraction.get("skills"):
+                for skill_type, skills in extraction["skills"].items():
+                    if skill_type in aggregated["skills"] and isinstance(skills, list):
+                        aggregated["skills"][skill_type].update(skills)
+            
+            # Collect other sections
+            aggregated["projects"].extend(extraction.get("projects", []))
+            aggregated["certifications"].extend(extraction.get("certifications", []))
+            aggregated["publications"].extend(extraction.get("publications", []))
+            aggregated["awards"].extend(extraction.get("awards", []))
+        
+        # Convert skill sets back to lists
+        for skill_type in aggregated["skills"]:
+            aggregated["skills"][skill_type] = sorted(list(aggregated["skills"][skill_type]))
+        
+        return aggregated
+    
+    def _deduplicate_data(self, aggregated_data):
+        """Deduplicate experiences, projects, and other entries."""
+        # Deduplicate experiences
+        aggregated_data["experiences"] = self._deduplicate_experiences(
+            aggregated_data["experiences"]
+        )
+        
+        # Deduplicate education
+        aggregated_data["education"] = self._deduplicate_education(
+            aggregated_data["education"]
+        )
+        
+        # Deduplicate standalone projects
+        aggregated_data["projects"] = self._deduplicate_projects(
+            aggregated_data["projects"]
+        )
+        
+        # Deduplicate certifications
+        aggregated_data["certifications"] = self._deduplicate_certifications(
+            aggregated_data["certifications"]
+        )
+        
+        return aggregated_data
+    
+    def _deduplicate_experiences(self, experiences):
+        """Intelligently deduplicate work experiences."""
+        from datetime import datetime
+        
+        if not experiences:
+            return []
+        
+        # Group by company and approximate role
+        grouped = {}
+        for exp in experiences:
+            # Create a key based on company and normalized title
+            company_key = self._normalize_company_name(exp.get("company", ""))
+            title_key = self._normalize_job_title(exp.get("title", ""))
+            key = (company_key, title_key)
+            
+            if key not in grouped:
+                grouped[key] = []
+            grouped[key].append(exp)
+        
+        # Merge each group
+        deduped = []
+        for key, group in grouped.items():
+            if len(group) == 1:
+                deduped.append(group[0])
+            else:
+                merged = self._merge_experience_group(group)
+                deduped.append(merged)
+        
+        # Sort by start date (most recent first)
+        deduped.sort(key=lambda x: self._parse_date_from_duration(x.get("duration", "")) or datetime(1900, 1, 1), reverse=True)
+        
+        return deduped
+    
+    def _merge_experience_group(self, experiences):
+        """Merge multiple instances of the same experience."""
+        # Use the most detailed one as base
+        base = max(experiences, key=lambda x: (
+            len(x.get("description", "")),
+            len(x.get("achievements", [])),
+            len(x.get("projects", []))
+        ))
+        
+        # Create a copy to avoid modifying original
+        merged = base.copy()
+        
+        # Merge achievements (unique)
+        all_achievements = []
+        for exp in experiences:
+            all_achievements.extend(exp.get("achievements", []))
+        merged["achievements"] = list(dict.fromkeys(all_achievements))  # Preserve order, remove duplicates
+        
+        # Merge technologies
+        all_tech = []
+        for exp in experiences:
+            all_tech.extend(exp.get("technologies", []))
+        merged["technologies"] = list(dict.fromkeys(all_tech))
+        
+        # Merge projects by title
+        projects_by_title = {}
+        for exp in experiences:
+            for proj in exp.get("projects", []):
+                title = proj.get("title", "")
+                if title:
+                    if title not in projects_by_title:
+                        projects_by_title[title] = []
+                    projects_by_title[title].append(proj)
+        
+        # Merge each project group
+        merged_projects = []
+        for title, proj_group in projects_by_title.items():
+            if len(proj_group) == 1:
+                merged_projects.append(proj_group[0])
+            else:
+                # Merge project details
+                merged_proj = self._merge_project_group(proj_group)
+                merged_projects.append(merged_proj)
+        
+        merged["projects"] = merged_projects
+        
+        # Use the most specific duration (prefer ones with month names)
+        for exp in experiences:
+            duration = exp.get("duration", "")
+            if duration and (" - " in duration or any(month in duration.lower() for month in ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"])):
+                merged["duration"] = duration
+                break
+        
+        return merged
+    
+    def _merge_project_group(self, projects):
+        """Merge multiple instances of the same project."""
+        # Use most detailed as base
+        base = max(projects, key=lambda x: len(x.get("description", "")))
+        merged = base.copy()
+        
+        # Merge achievements
+        all_achievements = []
+        for proj in projects:
+            all_achievements.extend(proj.get("achievements", []))
+        merged["achievements"] = list(dict.fromkeys(all_achievements))
+        
+        # Merge technologies
+        all_tech = []
+        for proj in projects:
+            all_tech.extend(proj.get("technologies", []))
+        merged["technologies"] = list(dict.fromkeys(all_tech))
+        
+        return merged
+    
+    def _deduplicate_education(self, education_list):
+        """Deduplicate education entries."""
+        if not education_list:
+            return []
+        
+        # Group by institution and degree
+        seen = set()
+        deduped = []
+        
+        for edu in education_list:
+            key = (
+                edu.get("institution", "").lower(),
+                edu.get("degree", "").lower()
+            )
+            if key not in seen:
+                seen.add(key)
+                deduped.append(edu)
+        
+        return deduped
+    
+    def _deduplicate_projects(self, projects):
+        """Deduplicate standalone projects."""
+        if not projects:
+            return []
+        
+        # Group by name
+        seen = set()
+        deduped = []
+        
+        for proj in projects:
+            name = proj.get("name", "").lower()
+            if name and name not in seen:
+                seen.add(name)
+                deduped.append(proj)
+        
+        return deduped
+    
+    def _deduplicate_certifications(self, certs):
+        """Deduplicate certifications."""
+        if not certs:
+            return []
+        
+        # Group by name and issuer
+        seen = set()
+        deduped = []
+        
+        for cert in certs:
+            key = (
+                cert.get("name", "").lower(),
+                cert.get("issuer", "").lower()
+            )
+            if key[0] and key not in seen:
+                seen.add(key)
+                deduped.append(cert)
+        
+        return deduped
+    
+    def _build_database(self, deduped_data):
+        """Structure data into final career database format."""
+        # Start with required sections
+        career_db = {
+            "personal_info": deduped_data["personal_info"] or {},
+            "experience": deduped_data["experiences"],
+            "education": deduped_data["education"],
+            "skills": {}
+        }
+        
+        # Add skills (filter out empty lists)
+        for skill_type, skills in deduped_data["skills"].items():
+            if skills:
+                if skill_type == "technical" or skills:  # technical is required
+                    career_db["skills"][skill_type] = skills
+        
+        # Add optional sections only if they have content
+        if deduped_data["projects"]:
+            career_db["projects"] = deduped_data["projects"]
+        
+        if deduped_data["certifications"]:
+            career_db["certifications"] = deduped_data["certifications"]
+        
+        if deduped_data["publications"]:
+            career_db["publications"] = deduped_data["publications"]
+        
+        if deduped_data["awards"]:
+            career_db["awards"] = deduped_data["awards"]
+        
+        return career_db
+    
+    def _merge_with_existing(self, new_db, existing_db, strategy):
+        """Merge new database with existing one based on strategy."""
+        if strategy == "replace":
+            return new_db
+        elif strategy == "append":
+            # Simple append - just concatenate lists
+            from utils.database_parser import merge_career_databases
+            return merge_career_databases(existing_db, new_db)
+        else:  # smart merge
+            # Use existing personal info if more complete
+            if existing_db.get("personal_info"):
+                for key, value in existing_db["personal_info"].items():
+                    if value and not new_db.get("personal_info", {}).get(key):
+                        if "personal_info" not in new_db:
+                            new_db["personal_info"] = {}
+                        new_db["personal_info"][key] = value
+            
+            # Merge experiences intelligently
+            all_exp = existing_db.get("experience", []) + new_db.get("experience", [])
+            new_db["experience"] = self._deduplicate_experiences(all_exp)
+            
+            # Merge education
+            all_edu = existing_db.get("education", []) + new_db.get("education", [])
+            new_db["education"] = self._deduplicate_education(all_edu)
+            
+            # Merge skills
+            if "skills" in existing_db:
+                for skill_type, skills in existing_db["skills"].items():
+                    if skill_type in new_db.get("skills", {}):
+                        combined = set(new_db["skills"][skill_type]) | set(skills)
+                        new_db["skills"][skill_type] = sorted(list(combined))
+                    else:
+                        if "skills" not in new_db:
+                            new_db["skills"] = {}
+                        new_db["skills"][skill_type] = skills
+            
+            return new_db
+    
+    def _clean_database(self, career_db):
+        """Clean and standardize the database."""
+        import re
+        
+        # Clean personal info
+        if "personal_info" in career_db:
+            for key, value in career_db["personal_info"].items():
+                if isinstance(value, str):
+                    career_db["personal_info"][key] = value.strip()
+        
+        # Clean experiences
+        for exp in career_db.get("experience", []):
+            # Standardize dates
+            if "duration" in exp:
+                exp["duration"] = self._standardize_duration(exp["duration"])
+            
+            # Clean descriptions and achievements
+            if "description" in exp:
+                exp["description"] = exp["description"].strip()
+            
+            if "achievements" in exp:
+                exp["achievements"] = [a.strip() for a in exp["achievements"] if a.strip()]
+            
+            # Clean technologies
+            if "technologies" in exp:
+                exp["technologies"] = self._standardize_technologies(exp["technologies"])
+        
+        # Standardize all technology lists
+        if "skills" in career_db:
+            for skill_type in ["technical", "tools", "frameworks"]:
+                if skill_type in career_db["skills"]:
+                    career_db["skills"][skill_type] = self._standardize_technologies(
+                        career_db["skills"][skill_type]
+                    )
+        
+        return career_db
+    
+    def _generate_summary(self, career_db, extracted_experiences, validation_errors):
+        """Generate summary report of the build process."""
+        summary = {
+            "total_documents_processed": len(extracted_experiences),
+            "successful_extractions": sum(
+                1 for e in extracted_experiences 
+                if e.get("extraction_confidence", 0) > 0.5
+            ),
+            "experiences_extracted": sum(
+                len(e.get("experiences", [])) 
+                for e in extracted_experiences
+            ),
+            "experiences_after_dedup": len(career_db.get("experience", [])),
+            "companies": [],
+            "technologies_found": [],
+            "extraction_quality": {
+                "high_confidence": 0,
+                "medium_confidence": 0,
+                "low_confidence": 0
+            },
+            "validation_errors": validation_errors,
+            "data_completeness": {}
+        }
+        
+        # Count extraction quality
+        for e in extracted_experiences:
+            conf = e.get("extraction_confidence", 0)
+            if conf >= 0.8:
+                summary["extraction_quality"]["high_confidence"] += 1
+            elif conf >= 0.5:
+                summary["extraction_quality"]["medium_confidence"] += 1
+            else:
+                summary["extraction_quality"]["low_confidence"] += 1
+        
+        # Analyze companies and projects
+        company_stats = {}
+        for exp in career_db.get("experience", []):
+            company = exp.get("company", "Unknown")
+            if company not in company_stats:
+                company_stats[company] = {"experiences": 0, "projects": 0}
+            company_stats[company]["experiences"] += 1
+            company_stats[company]["projects"] += len(exp.get("projects", []))
+        
+        summary["companies"] = [
+            {"name": name, **stats} 
+            for name, stats in company_stats.items()
+        ]
+        
+        # Get all technologies
+        from utils.database_parser import CareerDatabaseParser
+        parser = CareerDatabaseParser()
+        parser.data = career_db
+        summary["technologies_found"] = parser.get_all_technologies()
+        
+        # Check data completeness
+        summary["data_completeness"] = {
+            "has_personal_info": bool(career_db.get("personal_info", {}).get("name")),
+            "has_email": bool(career_db.get("personal_info", {}).get("email")),
+            "has_experience": bool(career_db.get("experience")),
+            "has_education": bool(career_db.get("education")),
+            "has_skills": bool(career_db.get("skills", {}).get("technical")),
+            "has_projects": bool(career_db.get("projects")) or any(
+                exp.get("projects") for exp in career_db.get("experience", [])
+            )
+        }
+        
+        # Calculate date range
+        dates = []
+        for exp in career_db.get("experience", []):
+            duration = exp.get("duration", "")
+            if duration:
+                start_date = self._parse_date_from_duration(duration)
+                if start_date:
+                    dates.append(start_date)
+        
+        if dates:
+            summary["date_range"] = f"{min(dates).strftime('%Y-%m')} to present"
+        
+        return summary
+    
+    def _normalize_company_name(self, company):
+        """Normalize company name for comparison."""
+        # Remove common suffixes
+        normalized = company.lower().strip()
+        for suffix in [", inc.", ", inc", ", llc", ", ltd", ", corp", ", corporation"]:
+            normalized = normalized.replace(suffix, "")
+        return normalized
+    
+    def _normalize_job_title(self, title):
+        """Normalize job title for comparison."""
+        # Simplify common variations
+        normalized = title.lower().strip()
+        replacements = {
+            "sr.": "senior",
+            "sr ": "senior ",
+            "jr.": "junior",
+            "jr ": "junior ",
+            "software engineer": "engineer",
+            "software developer": "developer"
+        }
+        for old, new in replacements.items():
+            normalized = normalized.replace(old, new)
+        return normalized
+    
+    def _parse_date_from_duration(self, duration):
+        """Parse start date from duration string."""
+        from datetime import datetime
+        import re
+        
+        # Match patterns like "2020-Present", "Jan 2020 - Dec 2023"
+        patterns = [
+            r'(\d{4})',  # Just year
+            r'(\w{3})\s+(\d{4})',  # Mon YYYY
+            r'(\d{1,2})/(\d{4})',  # MM/YYYY
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, duration)
+            if match:
+                try:
+                    if len(match.groups()) == 1:
+                        # Just year
+                        return datetime(int(match.group(1)), 1, 1)
+                    elif len(match.groups()) == 2:
+                        # Month Year
+                        month_map = {
+                            'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4,
+                            'may': 5, 'jun': 6, 'jul': 7, 'aug': 8,
+                            'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+                        }
+                        month = month_map.get(match.group(1).lower(), 1)
+                        return datetime(int(match.group(2)), month, 1)
+                except:
+                    pass
+        
+        return None
+    
+    def _standardize_duration(self, duration):
+        """Standardize duration format."""
+        # Already in good format
+        if " - " in duration or "-" in duration:
+            return duration
+        
+        # Convert "Current" to "Present"
+        duration = duration.replace("Current", "Present")
+        duration = duration.replace("current", "Present")
+        
+        return duration
+    
+    def _standardize_technologies(self, tech_list):
+        """Standardize technology names."""
+        if not tech_list:
+            return []
+        
+        # Common standardizations
+        replacements = {
+            "javascript": "JavaScript",
+            "typescript": "TypeScript",
+            "python": "Python",
+            "react": "React",
+            "react.js": "React",
+            "reactjs": "React",
+            "node.js": "Node.js",
+            "nodejs": "Node.js",
+            "mongodb": "MongoDB",
+            "postgresql": "PostgreSQL",
+            "postgres": "PostgreSQL",
+            "mysql": "MySQL",
+            "aws": "AWS",
+            "gcp": "Google Cloud Platform",
+            "k8s": "Kubernetes"
+        }
+        
+        standardized = []
+        for tech in tech_list:
+            tech_lower = tech.lower().strip()
+            standardized.append(replacements.get(tech_lower, tech.strip()))
+        
+        # Remove duplicates while preserving order
+        return list(dict.fromkeys(standardized))
+    
+    def post(self, shared: dict, prep_res: dict, exec_res: dict) -> str:
+        """Save database and store in shared."""
+        from utils.database_parser import save_career_database
+        
+        # Save to file
+        save_career_database(exec_res["career_database"], prep_res["output_path"])
+        
+        # Store in shared
+        shared["career_database"] = exec_res["career_database"]
+        shared["build_summary"] = exec_res["summary"]
+        
+        if exec_res["validation_errors"]:
+            shared["validation_errors"] = exec_res["validation_errors"]
+            logger.warning(f"Validation errors: {exec_res['validation_errors']}")
+        
+        # Log summary
+        logger.info(f"Career database built successfully:")
+        logger.info(f"- Documents processed: {exec_res['summary']['total_documents_processed']}")
+        logger.info(f"- Experiences: {exec_res['summary']['experiences_after_dedup']}")
+        logger.info(f"- Companies: {len(exec_res['summary']['companies'])}")
+        logger.info(f"- Technologies: {len(exec_res['summary']['technologies_found'])}")
+        
+        return "complete"

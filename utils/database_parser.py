@@ -448,3 +448,37 @@ class CareerDatabaseParser:
                     achievements.extend(proj.get('achievements', []))
         
         return achievements
+
+
+def save_career_database(data: Dict[str, Any], path: Union[str, Path]) -> None:
+    """
+    Save career database to a YAML file.
+    
+    Args:
+        data: Career database dictionary to save
+        path: Path where to save the YAML file
+        
+    Raises:
+        CareerDatabaseError: If saving fails
+    """
+    path = Path(path)
+    
+    try:
+        # Ensure parent directory exists
+        path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Save with nice formatting
+        with open(path, 'w', encoding='utf-8') as f:
+            yaml.dump(
+                data, 
+                f, 
+                default_flow_style=False,
+                sort_keys=False,
+                allow_unicode=True,
+                width=120
+            )
+        
+        logger.info(f"Saved career database to: {path}")
+        
+    except Exception as e:
+        raise CareerDatabaseError(f"Failed to save career database: {e}")

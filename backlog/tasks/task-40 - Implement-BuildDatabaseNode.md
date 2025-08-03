@@ -1,15 +1,15 @@
 ---
 id: task-40
 title: Implement BuildDatabaseNode
-status: pending
+status: completed
+assignee:
+  - unassigned
+created_date: ''
+updated_date: '2025-08-03'
+labels: []
+dependencies:
+  - task-39
 priority: high
-assignee: unassigned
-created: 2024-01-01
-updated: 2025-08-02
-tags: [node, database-building, validation, experience-database, pocketflow]
-dependencies: [task-39]
-estimated_hours: 6
-actual_hours: 0
 ---
 
 ## Description
@@ -18,13 +18,13 @@ Implement the BuildDatabaseNode that structures extracted work experiences into 
 
 ## Acceptance Criteria
 
-- [ ] Structures raw extractions into career database schema
-- [ ] Deduplicates overlapping experiences from multiple documents
-- [ ] Validates all required fields are present
-- [ ] Merges information from multiple sources intelligently
-- [ ] Handles conflicts in dates or details
-- [ ] Generates the final career database YAML file
-- [ ] Creates summary report of what was extracted
+- [x] Structures raw extractions into career database schema
+- [x] Deduplicates overlapping experiences from multiple documents
+- [x] Validates all required fields are present
+- [x] Merges information from multiple sources intelligently
+- [x] Handles conflicts in dates or details
+- [x] Generates the final career database YAML file
+- [x] Creates summary report of what was extracted
 
 ## Technical Details
 
@@ -219,3 +219,56 @@ build_summary:
 - Output used by main application flow
 - Can be run independently for updates
 - Supports incremental building
+
+## Implementation Details
+
+### Completed on 2025-08-03
+
+1. **Implemented BuildDatabaseNode** in `nodes.py:3158-3762`
+   - Aggregates extracted experiences from multiple documents
+   - Intelligent deduplication based on company/role normalization
+   - Merges duplicate experiences and projects
+   - Validates against career database JSON schema
+   - Saves final database to YAML file
+
+2. **Deduplication Features**
+   - Normalizes company names (removes suffixes like Inc., LLC)
+   - Normalizes job titles (Sr. → Senior, Software Engineer → Engineer)
+   - Groups experiences by normalized company/title
+   - Merges achievements, technologies, and projects
+   - Prefers most specific/detailed information
+
+3. **Merge Strategies**
+   - **Smart merge**: Intelligently combines with existing database
+   - **Replace**: Completely replaces existing database
+   - **Append**: Simply adds new data to existing
+
+4. **Data Standardization**
+   - Technology name standardization (js → JavaScript, k8s → Kubernetes)
+   - Date format standardization
+   - Removes empty sections from final output
+   - Cleans whitespace and formatting
+
+5. **Summary Report**
+   - Total documents processed
+   - Extraction quality metrics (high/medium/low confidence)
+   - Companies and project counts
+   - All technologies found
+   - Data completeness checks
+   - Validation errors if any
+
+6. **Error Handling**
+   - Gracefully handles missing dates in experience sorting
+   - Validates against schema and reports errors
+   - Skips low-confidence extractions (< 0.3)
+
+7. **Testing**
+   - Created comprehensive unit tests in `tests/test_build_database_node.py`
+   - 14 test cases covering all functionality
+   - Tests deduplication, merging, standardization
+   - All tests passing
+
+8. **Integration**
+   - Added save_career_database function to database_parser.py
+   - Uses validate_with_schema for JSON schema validation
+   - Outputs to configurable path (default: career_database.yaml)
