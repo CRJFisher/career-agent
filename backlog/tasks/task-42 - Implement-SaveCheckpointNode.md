@@ -1,15 +1,14 @@
 ---
 id: task-42
 title: Implement SaveCheckpointNode
-status: pending
-priority: medium
-assignee: unassigned
-created: 2024-01-01
-updated: 2025-08-02
-tags: [node, checkpoint, persistence, pocketflow]
+status: completed
+assignee:
+  - unassigned
+created_date: ''
+updated_date: '2025-08-03'
+labels: []
 dependencies: []
-estimated_hours: 3
-actual_hours: 0
+priority: medium
 ---
 
 ## Description

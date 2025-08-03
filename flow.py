@@ -8,8 +8,10 @@ or pipeline in the job application process.
 All flows extend PocketFlow's base Flow class.
 """
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import logging
+from datetime import datetime
+from pathlib import Path
 from pocketflow import Flow, BatchFlow
 from nodes import (
     ExtractRequirementsNode,
@@ -20,6 +22,7 @@ from nodes import (
     LoadCheckpointNode,
     ScanDocumentsNode,
     ExtractExperienceNode,
+    BuildDatabaseNode,
     DecideActionNode,
     WebSearchNode,
     ReadContentNode,
@@ -95,21 +98,312 @@ class ExperienceDatabaseFlow(Flow):
     """
     Builds career database from document sources.
     
-    Scans Google Drive and local directories, extracts work experience,
-    and builds a structured career database.
+    This flow orchestrates the complete process of building a career database:
+    1. Scans configured sources (Google Drive, local directories) for documents
+    2. Extracts work experience using LLM analysis
+    3. Builds structured career database with deduplication and validation
+    
+    The flow supports:
+    - Checkpoint saving/loading for interrupted processing
+    - Progress tracking throughout execution
+    - Incremental updates to existing databases
+    - Comprehensive error handling and reporting
     """
     
-    def __init__(self):
+    def __init__(self, config: Dict[str, Any] = None):
+        """
+        Initialize the experience database flow.
+        
+        Args:
+            config: Flow configuration including:
+                - scan_config: Document source configuration
+                - extraction_config: LLM extraction settings
+                - output_path: Where to save career database
+                - enable_checkpoints: Whether to save checkpoints
+                - checkpoint_dir: Directory for checkpoint files
+        """
+        self.config = config or {}
+        self.checkpoints_enabled = self.config.get("enable_checkpoints", True)
+        self.checkpoint_dir = self.config.get("checkpoint_dir", ".checkpoints")
+        self.start_time = None
+        
         # Create nodes
         scan = ScanDocumentsNode()
         extract = ExtractExperienceNode()
-        # TODO: Add BuildDatabaseNode
+        build = BuildDatabaseNode()
         
-        # Connect nodes
-        scan >> extract
+        # Add checkpoint nodes if enabled
+        if self.checkpoints_enabled:
+            # Create checkpoint nodes
+            save_scan = SaveCheckpointNode()
+            save_scan.set_params({
+                "flow_name": "experience_db",
+                "checkpoint_name": "scan_complete",
+                "checkpoint_data": ["document_sources", "scan_errors"]
+            })
+            
+            save_extract = SaveCheckpointNode()
+            save_extract.set_params({
+                "flow_name": "experience_db",
+                "checkpoint_name": "extract_complete",
+                "checkpoint_data": ["extracted_experiences", "extraction_summary"]
+            })
+            
+            # Connect with checkpoints
+            scan >> save_scan >> extract >> save_extract >> build
+            
+            # Initialize with start node
+            super().__init__(start=scan)
+        else:
+            # Direct connection without checkpoints
+            scan >> extract >> build
+            super().__init__(start=scan)
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Prepare the flow by setting up configuration and checking for resume.
         
-        # Initialize with start node
-        super().__init__(start=scan)
+        Args:
+            shared: Shared store to populate with configuration
+            
+        Returns:
+            Preparation context including resume status
+        """
+        import time
+        from datetime import datetime
+        from pathlib import Path
+        
+        self.start_time = time.time()
+        
+        # Apply configuration to shared store
+        shared.update({
+            "scan_config": self.config.get("scan_config", {
+                "google_drive_folders": [],
+                "local_directories": [],
+                "file_types": [".pdf", ".docx", ".md"],
+                "date_filter": {}
+            }),
+            "extraction_mode": self.config.get("extraction_config", {}).get("mode", "comprehensive"),
+            "database_output_path": self.config.get("output_path", "career_database.yaml"),
+            "merge_strategy": self.config.get("merge_strategy", "smart")
+        })
+        
+        # Load existing database if requested
+        if self.config.get("merge_with_existing", True):
+            existing_db_path = Path(shared["database_output_path"])
+            if existing_db_path.exists():
+                try:
+                    from utils.database_parser import load_career_database
+                    shared["existing_career_database"] = load_career_database(existing_db_path)
+                    logger.info(f"Loaded existing database from {existing_db_path}")
+                except Exception as e:
+                    logger.warning(f"Could not load existing database: {e}")
+        
+        # Check for checkpoint resume
+        if self.checkpoints_enabled and self.config.get("resume_from_checkpoint", True):
+            checkpoint_path = Path(self.checkpoint_dir) / "experience_db"
+            if checkpoint_path.exists():
+                latest_checkpoint = self._find_latest_checkpoint(checkpoint_path)
+                if latest_checkpoint:
+                    logger.info(f"Resuming from checkpoint: {latest_checkpoint}")
+                    # LoadCheckpointNode will handle the actual loading
+                    shared["resume_checkpoint"] = latest_checkpoint
+        
+        # Initialize progress tracking
+        shared["flow_progress"] = {
+            "scanning": {"status": "pending", "progress": 0},
+            "extracting": {"status": "pending", "progress": 0},
+            "building": {"status": "pending", "progress": 0}
+        }
+        
+        return {"flow_initialized": True}
+    
+    def _find_latest_checkpoint(self, checkpoint_dir: Path) -> Optional[str]:
+        """Find the most recent checkpoint in the directory."""
+        checkpoints = list(checkpoint_dir.glob("*.yaml"))
+        if not checkpoints:
+            return None
+        
+        # Sort by modification time
+        latest = max(checkpoints, key=lambda p: p.stat().st_mtime)
+        return latest.stem  # Return checkpoint name without extension
+    
+    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: Any) -> str:
+        """
+        Generate final report and clean up.
+        
+        Args:
+            shared: Shared store with all results
+            prep_res: Preparation results
+            exec_res: Execution results (final node action)
+            
+        Returns:
+            Final action/status
+        """
+        import time
+        
+        # Calculate execution time
+        duration = time.time() - self.start_time if self.start_time else 0
+        
+        # Generate comprehensive summary report
+        summary = self._generate_summary_report(shared, duration)
+        
+        # Save summary to file
+        if self.config.get("save_summary", True):
+            self._save_summary(summary)
+        
+        # Log summary
+        self._log_summary(summary)
+        
+        # Store summary in shared for caller
+        shared["flow_summary"] = summary
+        
+        return "complete"
+    
+    def _generate_summary_report(self, shared: Dict[str, Any], duration: float) -> Dict[str, Any]:
+        """Generate comprehensive summary of the flow execution."""
+        summary = {
+            "flow_status": "completed",
+            "duration_minutes": round(duration / 60, 1),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # Scanning phase summary
+        if "document_sources" in shared:
+            docs = shared["document_sources"]
+            summary["scanning_phase"] = {
+                "documents_found": len(docs),
+                "total_size_mb": round(sum(d.get("size", 0) for d in docs) / 1024 / 1024, 1),
+                "sources": self._count_sources(docs),
+                "errors": len(shared.get("scan_errors", []))
+            }
+        
+        # Extraction phase summary
+        if "extraction_summary" in shared:
+            ext_summary = shared["extraction_summary"]
+            summary["extraction_phase"] = {
+                "documents_processed": ext_summary.get("total_documents", 0),
+                "successful_extractions": ext_summary.get("successful_extractions", 0),
+                "failed_extractions": ext_summary.get("failed_extractions", 0),
+                "average_confidence": round(ext_summary.get("average_confidence", 0), 2)
+            }
+        
+        # Building phase summary
+        if "build_summary" in shared:
+            build_summary = shared["build_summary"]
+            summary["building_phase"] = {
+                "experiences_before_dedup": build_summary.get("experiences_extracted", 0),
+                "experiences_after_dedup": build_summary.get("experiences_after_dedup", 0),
+                "companies": len(build_summary.get("companies", [])),
+                "technologies_found": len(build_summary.get("technologies_found", [])),
+                "validation_errors": len(build_summary.get("validation_errors", [])),
+                "database_saved": shared.get("database_output_path")
+            }
+            
+            # Add quality metrics
+            if "extraction_quality" in build_summary:
+                summary["quality_metrics"] = build_summary["extraction_quality"]
+        
+        # Add data completeness
+        if "build_summary" in shared and "data_completeness" in shared["build_summary"]:
+            summary["data_completeness"] = shared["build_summary"]["data_completeness"]
+        
+        # Add next steps
+        summary["next_steps"] = self._generate_next_steps(summary)
+        
+        return summary
+    
+    def _count_sources(self, documents: List[Dict[str, Any]]) -> Dict[str, int]:
+        """Count documents by source type."""
+        sources = {}
+        for doc in documents:
+            source = doc.get("source", "unknown")
+            sources[source] = sources.get(source, 0) + 1
+        return sources
+    
+    def _generate_next_steps(self, summary: Dict[str, Any]) -> List[str]:
+        """Generate recommended next steps based on summary."""
+        next_steps = []
+        
+        # Check for extraction failures
+        if summary.get("extraction_phase", {}).get("failed_extractions", 0) > 0:
+            next_steps.append("Review and manually process failed document extractions")
+        
+        # Check for validation errors
+        if summary.get("building_phase", {}).get("validation_errors", 0) > 0:
+            next_steps.append("Fix validation errors in the generated database")
+        
+        # Check data completeness
+        completeness = summary.get("data_completeness", {})
+        if not completeness.get("has_email"):
+            next_steps.append("Add email address to personal information")
+        if not completeness.get("has_skills"):
+            next_steps.append("Add technical skills section")
+        
+        # Always suggest review
+        next_steps.append("Review extracted experiences for accuracy")
+        next_steps.append("Add any missing experiences or projects manually")
+        
+        # Suggest next flow
+        if summary.get("building_phase", {}).get("experiences_after_dedup", 0) > 0:
+            next_steps.append("Run job application flows with the new career database")
+        
+        return next_steps
+    
+    def _save_summary(self, summary: Dict[str, Any]) -> None:
+        """Save summary report to file."""
+        from pathlib import Path
+        import yaml
+        
+        summary_dir = Path("summaries")
+        summary_dir.mkdir(exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        summary_file = summary_dir / f"experience_db_summary_{timestamp}.yaml"
+        
+        with open(summary_file, 'w') as f:
+            yaml.dump(summary, f, default_flow_style=False, sort_keys=False)
+        
+        logger.info(f"Summary saved to: {summary_file}")
+    
+    def _log_summary(self, summary: Dict[str, Any]) -> None:
+        """Log summary to console."""
+        logger.info("=" * 60)
+        logger.info("EXPERIENCE DATABASE FLOW COMPLETE")
+        logger.info("=" * 60)
+        
+        logger.info(f"Duration: {summary['duration_minutes']} minutes")
+        
+        if "scanning_phase" in summary:
+            scan = summary["scanning_phase"]
+            logger.info(f"\nScanning Phase:")
+            logger.info(f"  - Documents found: {scan['documents_found']}")
+            logger.info(f"  - Total size: {scan['total_size_mb']} MB")
+            logger.info(f"  - Sources: {scan['sources']}")
+        
+        if "extraction_phase" in summary:
+            extract = summary["extraction_phase"]
+            logger.info(f"\nExtraction Phase:")
+            logger.info(f"  - Processed: {extract['documents_processed']}")
+            logger.info(f"  - Successful: {extract['successful_extractions']}")
+            logger.info(f"  - Failed: {extract['failed_extractions']}")
+            logger.info(f"  - Avg confidence: {extract['average_confidence']}")
+        
+        if "building_phase" in summary:
+            build = summary["building_phase"]
+            logger.info(f"\nBuilding Phase:")
+            logger.info(f"  - Experiences (raw): {build['experiences_before_dedup']}")
+            logger.info(f"  - Experiences (final): {build['experiences_after_dedup']}")
+            logger.info(f"  - Companies: {build['companies']}")
+            logger.info(f"  - Technologies: {build['technologies_found']}")
+            logger.info(f"  - Database: {build['database_saved']}")
+        
+        if summary.get("next_steps"):
+            logger.info(f"\nNext Steps:")
+            for step in summary["next_steps"]:
+                logger.info(f"  - {step}")
+        
+        logger.info("=" * 60)
 
 
 class NarrativeFlow(Flow):

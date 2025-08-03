@@ -15,6 +15,7 @@ from typing import Dict, Any, Optional, List, Tuple
 import logging
 import yaml
 import os
+from pathlib import Path
 from pocketflow import Node, BatchNode
 from utils.llm_wrapper import get_default_llm_wrapper
 
@@ -657,83 +658,255 @@ class SaveCheckpointNode(Node):
     Saves workflow state to checkpoint files for user review.
     
     Exports specific data to user-editable YAML files and pauses
-    the workflow for manual review and editing.
+    the workflow for manual review and editing. Supports backup
+    of previous checkpoints and configurable export templates.
     """
     
-    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
-        """Determine what to save based on flow context."""
-        # Get flow name from params or shared
-        flow_name = self.params.get("flow_name", "workflow")
+    def __init__(self, max_retries: int = 3, wait: float = 1.0):
+        """
+        Initialize SaveCheckpointNode.
         
-        # Determine which data to export based on flow
+        Args:
+            max_retries: Maximum retry attempts for file operations
+            wait: Wait time between retries
+        """
+        super().__init__(max_retries, wait)
+        self.checkpoint_dir = Path("checkpoints")
+        self.output_dir = Path("outputs")
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Determine what to save based on flow context and parameters."""
+        from datetime import datetime
+        
+        # Get configuration from params
+        flow_name = self.params.get("flow_name", shared.get("flow_name", "workflow"))
+        checkpoint_name = self.params.get("checkpoint_name", "checkpoint")
+        checkpoint_data = self.params.get("checkpoint_data", [])
+        output_file = self.params.get("output_file", f"{flow_name}_output.yaml")
+        user_message = self.params.get("user_message", None)
+        
+        # Create export configuration
         export_config = {
             "flow_name": flow_name,
-            "timestamp": None,  # Will be set in exec
-            "export_fields": []
+            "checkpoint_name": checkpoint_name,
+            "timestamp": datetime.now(),
+            "checkpoint_data": checkpoint_data,
+            "output_file": output_file,
+            "user_message": user_message,
+            "node_class": self.__class__.__name__,
+            "format_version": "1.0"
         }
         
-        if flow_name == "analysis":
-            export_config["export_fields"] = [
-                "requirement_mapping",
-                "strengths", 
-                "gaps"
-            ]
-        elif flow_name == "narrative":
-            export_config["export_fields"] = [
-                "experience_priorities",
-                "narrative_strategy",
-                "themes"
-            ]
-            
+        # Add flow-specific export fields if not explicitly provided
+        if not checkpoint_data:
+            if flow_name == "analysis":
+                export_config["checkpoint_data"] = [
+                    "requirements",
+                    "requirement_mapping_raw",
+                    "requirement_mapping_assessed", 
+                    "requirement_mapping_final",
+                    "gaps",
+                    "coverage_score"
+                ]
+            elif flow_name == "narrative":
+                export_config["checkpoint_data"] = [
+                    "prioritized_experiences",
+                    "narrative_strategy",
+                    "suitability_assessment",
+                    "requirements",
+                    "job_title",
+                    "company_name"
+                ]
+            elif flow_name == "experience_db":
+                export_config["checkpoint_data"] = [
+                    "document_sources",
+                    "extracted_experiences",
+                    "extraction_summary"
+                ]
+        
         return export_config
     
     def exec(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Save checkpoint and user-editable files."""
-        import time
+        """Save checkpoint and generate user-editable files."""
         import yaml
-        from pathlib import Path
-        
-        timestamp = int(time.time())
-        config["timestamp"] = timestamp
+        import shutil
+        from datetime import datetime
         
         # Create directories
-        Path("checkpoints").mkdir(exist_ok=True)
-        Path("outputs").mkdir(exist_ok=True)
+        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
         
-        # Save checkpoint
-        checkpoint_file = f"checkpoints/{config['flow_name']}_{timestamp}.yaml"
-        output_file = f"outputs/{config['flow_name']}_output.yaml"
+        # Create checkpoint subdirectory for this flow
+        flow_checkpoint_dir = self.checkpoint_dir / config["flow_name"]
+        flow_checkpoint_dir.mkdir(exist_ok=True)
+        
+        # Generate filenames
+        timestamp_str = config["timestamp"].strftime("%Y%m%d_%H%M%S")
+        checkpoint_filename = f"{config['checkpoint_name']}_{timestamp_str}.yaml"
+        checkpoint_path = flow_checkpoint_dir / checkpoint_filename
+        output_path = self.output_dir / config["output_file"]
+        
+        # Backup existing checkpoint if it exists
+        latest_link = flow_checkpoint_dir / f"{config['checkpoint_name']}_latest.yaml"
+        if latest_link.exists():
+            try:
+                backup_path = latest_link.with_suffix('.yaml.bak')
+                shutil.copy2(latest_link.resolve(), backup_path)
+                logger.info(f"Backed up existing checkpoint to: {backup_path}")
+            except Exception as e:
+                logger.warning(f"Could not backup checkpoint: {e}")
         
         return {
-            "checkpoint_file": checkpoint_file,
-            "output_file": output_file,
-            "config": config
+            "checkpoint_path": checkpoint_path,
+            "output_path": output_path,
+            "latest_link": latest_link,
+            "config": config,
+            "timestamp_str": timestamp_str
         }
     
-    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: Dict) -> Optional[str]:
-        """Save files and pause workflow."""
+    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: Dict) -> str:
+        """Save checkpoint files and generate user-editable output."""
         import yaml
+        from datetime import datetime
         
-        # Save full checkpoint
-        with open(exec_res["checkpoint_file"], 'w') as f:
-            yaml.dump(shared, f)
+        config = exec_res["config"]
         
-        # Save user-editable output
-        output_data = {
-            "# Instructions": "Edit this file and save. The workflow will resume with your changes.",
-            "# Flow": exec_res["config"]["flow_name"],
-            "# Timestamp": exec_res["config"]["timestamp"]
+        # Prepare checkpoint data
+        checkpoint_data = {
+            "metadata": {
+                "checkpoint_name": config["checkpoint_name"],
+                "flow_name": config["flow_name"],
+                "timestamp": config["timestamp"].isoformat(),
+                "node_class": config["node_class"],
+                "format_version": config["format_version"]
+            },
+            "shared_state": {},
+            "recovery_info": {
+                "next_node": shared.get("next_node", "unknown"),
+                "can_resume": True,
+                "required_state_keys": config["checkpoint_data"]
+            }
         }
         
-        for field in exec_res["config"]["export_fields"]:
+        # Copy specified fields to checkpoint
+        for field in config["checkpoint_data"]:
             if field in shared:
-                output_data[field] = shared[field]
+                checkpoint_data["shared_state"][field] = shared[field]
         
-        with open(exec_res["output_file"], 'w') as f:
-            yaml.dump(output_data, f, sort_keys=False)
+        # Add flow configuration and stats
+        checkpoint_data["shared_state"]["flow_config"] = shared.get("flow_config", {})
+        checkpoint_data["shared_state"]["flow_progress"] = shared.get("flow_progress", {})
         
-        logger.info(f"Checkpoint saved. Please review and edit: {exec_res['output_file']}")
-        return "pause"  # Special action to indicate workflow should pause
+        # Save full checkpoint
+        try:
+            with open(exec_res["checkpoint_path"], 'w', encoding='utf-8') as f:
+                yaml.dump(checkpoint_data, f, default_flow_style=False, 
+                         sort_keys=False, allow_unicode=True, width=120)
+            
+            # Update latest symlink
+            latest_link = exec_res["latest_link"]
+            if latest_link.exists() or latest_link.is_symlink():
+                latest_link.unlink()
+            latest_link.symlink_to(exec_res["checkpoint_path"].name)
+            
+        except Exception as e:
+            logger.error(f"Failed to save checkpoint: {e}")
+            raise
+        
+        # Generate user-editable output with instructions
+        output_data = self._generate_user_output(shared, config)
+        
+        # Save user-editable file
+        try:
+            with open(exec_res["output_path"], 'w', encoding='utf-8') as f:
+                # Write header comments manually for better formatting
+                f.write(f"# {'-' * 70}\n")
+                f.write(f"# Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"# Flow: {config['flow_name']}\n")
+                f.write(f"# Checkpoint: {config['checkpoint_name']}\n")
+                f.write(f"# {'-' * 70}\n")
+                
+                if config["user_message"]:
+                    f.write("#\n")
+                    for line in config["user_message"].strip().split('\n'):
+                        f.write(f"# {line}\n")
+                    f.write("#\n")
+                else:
+                    f.write("#\n")
+                    f.write("# INSTRUCTIONS:\n")
+                    f.write("# 1. Review the data below\n")
+                    f.write("# 2. Make any necessary edits\n")
+                    f.write("# 3. Save this file when complete\n")
+                    f.write("# 4. Resume the workflow to continue processing\n")
+                    f.write("#\n")
+                
+                f.write(f"# {'-' * 70}\n\n")
+                
+                # Write the data
+                yaml.dump(output_data, f, default_flow_style=False, 
+                         sort_keys=False, allow_unicode=True, width=120)
+        
+        except Exception as e:
+            logger.error(f"Failed to save user output: {e}")
+            raise
+        
+        # Update shared store with checkpoint info
+        shared["last_checkpoint"] = {
+            "name": config["checkpoint_name"],
+            "path": str(exec_res["checkpoint_path"]),
+            "timestamp": config["timestamp"].isoformat(),
+            "output_file": str(exec_res["output_path"])
+        }
+        
+        # Log summary
+        logger.info("=" * 60)
+        logger.info(f"✓ Checkpoint saved: {config['checkpoint_name']}")
+        logger.info(f"  Checkpoint: {exec_res['checkpoint_path']}")
+        logger.info(f"  User file: {exec_res['output_path']}")
+        logger.info("=" * 60)
+        
+        # Return action based on flow requirements
+        # Some flows may want to continue, others pause
+        return self.params.get("action", "continue")
+    
+    def _generate_user_output(self, shared: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate user-editable output based on flow type."""
+        output = {}
+        
+        # Export specified fields
+        for field in config["checkpoint_data"]:
+            if field in shared:
+                output[field] = shared[field]
+        
+        # Add flow-specific formatting or templates
+        if config["flow_name"] == "analysis":
+            # Format requirement mappings for easier editing
+            if "requirement_mapping_final" in output:
+                formatted_mappings = []
+                for req_id, mapping in output["requirement_mapping_final"].items():
+                    formatted_mappings.append({
+                        "requirement_id": req_id,
+                        "requirement": mapping.get("requirement", ""),
+                        "evidence": mapping.get("evidence", []),
+                        "strength": mapping.get("strength", ""),
+                        "notes": mapping.get("notes", "")
+                    })
+                output["requirement_mappings"] = formatted_mappings
+                del output["requirement_mapping_final"]
+        
+        elif config["flow_name"] == "narrative":
+            # Add helpful structure for narrative editing
+            if "narrative_strategy" in output:
+                strategy = output["narrative_strategy"]
+                output["narrative_strategy"] = {
+                    "must_tell_experiences": strategy.get("must_tell_experiences", []),
+                    "career_arc": strategy.get("career_arc", {}),
+                    "key_messages": strategy.get("key_messages", []),
+                    "evidence_stories": strategy.get("evidence_stories", []),
+                    "differentiators": strategy.get("differentiators", [])
+                }
+        
+        return output
 
 
 class LoadCheckpointNode(Node):
