@@ -258,20 +258,43 @@ class LLMWrapper:
 _default_wrapper = None
 
 
-def get_default_llm_wrapper(**kwargs) -> LLMWrapper:
+def get_default_llm_wrapper(use_cache: bool = None, **kwargs) -> LLMWrapper:
     """
     Get or create default LLM wrapper instance.
     
     Args:
+        use_cache: Whether to enable caching (defaults to ENABLE_LLM_CACHE env var)
         **kwargs: Arguments passed to LLMWrapper constructor
         
     Returns:
-        LLMWrapper instance
+        LLMWrapper instance (possibly wrapped with caching)
     """
     global _default_wrapper
     
     if _default_wrapper is None:
-        _default_wrapper = LLMWrapper(**kwargs)
+        base_wrapper = LLMWrapper(**kwargs)
+        
+        # Check if caching should be enabled
+        if use_cache is None:
+            use_cache = os.getenv("ENABLE_LLM_CACHE", "false").lower() == "true"
+        
+        if use_cache:
+            from .llm_cache import CachedLLMWrapper, CacheBackend
+            
+            # Get cache configuration from environment
+            cache_backend = os.getenv("LLM_CACHE_BACKEND", "disk").lower()
+            cache_dir = os.getenv("LLM_CACHE_DIR", ".llm_cache")
+            cache_ttl = int(os.getenv("LLM_CACHE_TTL", str(3600 * 24 * 7)))  # 1 week default
+            
+            _default_wrapper = CachedLLMWrapper(
+                base_wrapper=base_wrapper,
+                cache_backend=CacheBackend(cache_backend),
+                cache_dir=cache_dir,
+                ttl=cache_ttl
+            )
+            logger.info(f"LLM caching enabled with {cache_backend} backend")
+        else:
+            _default_wrapper = base_wrapper
     
     return _default_wrapper
 

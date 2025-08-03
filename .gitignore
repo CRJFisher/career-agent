@@ -157,3 +157,7 @@ temp/
 cache/
 .claude/settings.local.json
 .devcontainer
+
+# LLM cache directory
+.llm_cache/
+

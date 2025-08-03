@@ -39,11 +39,13 @@ While the system uses BatchNode for parallel document processing, the actual LLM
 ## Notes
 
 Potential improvements:
+
 - ExtractExperienceNode: Process multiple documents in parallel
 - CompanyResearchAgent: Multiple search queries in parallel
 - GenerationFlow: Generate CV and cover letter simultaneously
 
 Challenges:
+
 - API rate limits must be respected
 - Error handling becomes more complex
 - Need to maintain backwards compatibility
