@@ -42,6 +42,7 @@ The design document mentions "SQLite: Optional for career database storage" but 
 ## Notes
 
 Benefits:
+
 - Better performance for large career databases
 - Advanced querying capabilities
 - Data integrity with constraints
