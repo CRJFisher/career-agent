@@ -7,12 +7,14 @@ The Career Application Agent project has been successfully completed. All 43 tas
 ## Completed Features
 
 ### 1. Document Processing Pipeline
+
 - **ScanDocumentsNode**: Discovers documents from local directories and Google Drive
 - **ExtractExperienceNode**: Uses LLM to extract work experience from documents
 - **BuildDatabaseNode**: Structures and deduplicates experiences into career database
 - **ExperienceDatabaseFlow**: Orchestrates the complete pipeline
 
 ### 2. Job Analysis System
+
 - **ExtractRequirementsNode**: Parses job descriptions into structured requirements
 - **RequirementMappingNode**: Maps candidate experience to requirements
 - **StrengthAssessmentNode**: Evaluates mapping strengths
@@ -20,6 +22,7 @@ The Career Application Agent project has been successfully completed. All 43 tas
 - **AnalysisFlow**: Complete analysis pipeline with checkpoint support
 
 ### 3. Company Research Agent
+
 - **DecideActionNode**: Autonomous decision-making for research
 - **WebSearchNode**: Performs targeted searches
 - **ReadContentNode**: Extracts web content
@@ -27,6 +30,7 @@ The Career Application Agent project has been successfully completed. All 43 tas
 - **CompanyResearchAgent**: Autonomous research loop
 
 ### 4. Application Strategy
+
 - **SuitabilityScoringNode**: Calculates fit scores
 - **ExperiencePrioritizationNode**: Ranks relevant experiences
 - **NarrativeStrategyNode**: Develops application narrative
@@ -34,11 +38,13 @@ The Career Application Agent project has been successfully completed. All 43 tas
 - **NarrativeFlow**: Strategy development with checkpoint
 
 ### 5. Document Generation
+
 - **CVGenerationNode**: Creates tailored CVs
 - **CoverLetterNode**: Generates personalized cover letters
 - **GenerationFlow**: Parallel document generation
 
 ### 6. Workflow Management
+
 - **SaveCheckpointNode**: Saves state for user review
 - **LoadCheckpointNode**: Resumes with user edits
 - **Main orchestrator**: CLI interface for all workflows
@@ -46,18 +52,21 @@ The Career Application Agent project has been successfully completed. All 43 tas
 ## Technical Achievements
 
 ### Architecture
+
 - Built on The-Pocket/PocketFlow framework
 - Clean separation of concerns (nodes, flows, utilities)
 - Comprehensive shared store data contract
 - Schema validation throughout
 
 ### Quality
+
 - 100+ unit tests across all components
 - Integration tests for complete workflows
 - Mock LLM for deterministic testing
 - Comprehensive error handling
 
 ### Documentation
+
 - Complete API reference
 - Architecture design document
 - Troubleshooting guide
@@ -65,6 +74,7 @@ The Career Application Agent project has been successfully completed. All 43 tas
 - Developer guide for extensions
 
 ### User Experience
+
 - Pause/resume capability at key points
 - User-editable YAML outputs
 - Progress tracking and reporting
@@ -106,17 +116,20 @@ career-agent/
 ## Next Steps for Users
 
 1. **Set up environment**:
+
    ```bash
    export OPENROUTER_API_KEY="your-key"
    pip install -r requirements.txt
    ```
 
 2. **Build career database**:
+
    ```bash
    python main.py build-database --source-dir ~/Documents/Career
    ```
 
 3. **Apply to jobs**:
+
    ```bash
    python main.py apply --job-url "..." --company "..."
    ```
