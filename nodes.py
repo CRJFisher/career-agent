@@ -18,6 +18,13 @@ import os
 from pathlib import Path
 from pocketflow import Node, BatchNode
 from utils.llm_wrapper import get_default_llm_wrapper
+try:
+    from utils.ai_browser import AIBrowser, AISimpleScraper
+    AI_BROWSER_AVAILABLE = True
+except ImportError:
+    AI_BROWSER_AVAILABLE = False
+    AIBrowser = None
+    AISimpleScraper = None
 
 logger = logging.getLogger(__name__)
 
@@ -1299,6 +1306,9 @@ class DecideActionNode(Node):
                 shared["research_state"]["pages_read"].append(url)
         elif action_type == "synthesize":
             shared["research_state"]["synthesis_complete"] = True
+        elif action_type == "browser_action":
+            # Store browser action configuration
+            shared["browser_action"] = exec_res["action_params"]
         
         # Return the action type as the node's action
         return action_type
@@ -1339,11 +1349,22 @@ You have access to these tools:
      - focus: What to look for (optional)
    - Use when: You found a promising URL in search results
    
-3. **synthesize**: Compile gathered information into insights
+3. **browser_action**: Perform advanced browser interactions
+   - Parameters:
+     - action_type: One of ["extract_jobs", "fill_application", "navigate_and_extract", "simple_extract"]
+     - url: Target URL
+     - Additional params based on action_type:
+       - extract_jobs: No additional params needed
+       - fill_application: form_data (dict), submit (bool), submit_selector (str)
+       - navigate_and_extract: instruction (str)
+       - simple_extract: prompt (str)
+   - Use when: You need to interact with dynamic content, forms, or job boards
+   
+4. **synthesize**: Compile gathered information into insights
    - Parameters: none
    - Use when: You have enough information to meet research goals
    
-4. **finish**: Complete the research process
+5. **finish**: Complete the research process
    - Parameters: none
    - Use when: Synthesis is complete or no more useful research possible
 
@@ -1362,7 +1383,7 @@ thinking: |
   Be specific about what information gaps exist.
   
 action:
-  type: <web_search|read_content|synthesize|finish>
+  type: <web_search|read_content|browser_action|synthesize|finish>
   parameters:
     <action-specific parameters>
 ```"""
@@ -4175,3 +4196,210 @@ class BuildDatabaseNode(Node):
         logger.info(f"- Technologies: {len(exec_res['summary']['technologies_found'])}")
         
         return "complete"
+
+
+class BrowserActionNode(Node):
+    """
+    Performs AI-driven browser interactions for job applications.
+    
+    This node can navigate to job boards, fill out application forms,
+    extract job listings, and handle complex web interactions using
+    AI-powered browser automation.
+    """
+    
+    def __init__(self):
+        super().__init__(max_retries=2, wait=5)
+        if not AI_BROWSER_AVAILABLE:
+            raise ImportError(
+                "BrowserActionNode requires AI browser dependencies. "
+                "Install with: pip install langchain-community playwright"
+            )
+        self.llm = get_default_llm_wrapper()
+        self.browser = None
+        
+    async def _setup_browser(self):
+        """Initialize browser if not already done."""
+        if not self.browser:
+            self.browser = AIBrowser(self.llm, headless=True)
+            await self.browser.setup()
+            
+    async def _cleanup_browser(self):
+        """Clean up browser resources."""
+        if self.browser:
+            await self.browser.close()
+            self.browser = None
+    
+    def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract browser action configuration from shared store."""
+        action_config = shared.get("browser_action", {})
+        
+        if not action_config:
+            raise ValueError("No browser action configuration found")
+            
+        # Validate required fields
+        if "action_type" not in action_config:
+            raise ValueError("browser_action must specify action_type")
+            
+        return action_config
+    
+    async def exec(self, action_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute browser action based on configuration."""
+        import asyncio
+        
+        # Run async browser operations
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If already in async context, create a task
+            task = asyncio.create_task(self._exec_async(action_config))
+            return await task
+        else:
+            # If not in async context, run in new loop
+            return asyncio.run(self._exec_async(action_config))
+    
+    async def _exec_async(self, action_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Async implementation of browser actions."""
+        try:
+            await self._setup_browser()
+            
+            action_type = action_config["action_type"]
+            
+            if action_type == "extract_jobs":
+                return await self._extract_job_listings(action_config)
+            elif action_type == "fill_application":
+                return await self._fill_application(action_config)
+            elif action_type == "navigate_and_extract":
+                return await self._navigate_and_extract(action_config)
+            elif action_type == "simple_extract":
+                return await self._simple_extract(action_config)
+            else:
+                raise ValueError(f"Unknown action type: {action_type}")
+                
+        except Exception as e:
+            logger.error(f"Browser action failed: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "action_type": action_config.get("action_type")
+            }
+        finally:
+            # Don't close browser here - keep it alive for multiple actions
+            pass
+    
+    async def _extract_job_listings(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract job listings from a job board."""
+        url = config.get("url")
+        if not url:
+            raise ValueError("URL required for job extraction")
+            
+        # Navigate to the job board
+        result = await self.browser.navigate_and_extract(
+            url,
+            "Extract all job listings with title, company, location, and apply link"
+        )
+        
+        return {
+            "success": True,
+            "job_listings": result.get("data", []),
+            "url": url
+        }
+    
+    async def _fill_application(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Fill out a job application form."""
+        url = config.get("url")
+        form_data = config.get("form_data", {})
+        
+        if not url:
+            raise ValueError("URL required for form filling")
+            
+        # Navigate to the application page
+        await self.browser.page.goto(url)
+        
+        # Fill the form
+        status = await self.browser._fill_job_form(form_data)
+        
+        # Try to submit if requested
+        if config.get("submit", False):
+            submit_button_selector = config.get("submit_selector", 'button[type="submit"]')
+            try:
+                submit_button = await self.browser.page.wait_for_selector(submit_button_selector)
+                await submit_button.click()
+                await self.browser.page.wait_for_load_state("networkidle")
+                status += " | Form submitted successfully"
+            except Exception as e:
+                status += f" | Failed to submit: {str(e)}"
+        
+        return {
+            "success": True,
+            "status": status,
+            "url": url
+        }
+    
+    async def _navigate_and_extract(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Navigate to a URL and extract data based on instructions."""
+        url = config.get("url")
+        instruction = config.get("instruction")
+        
+        if not url or not instruction:
+            raise ValueError("URL and instruction required for navigation")
+            
+        result = await self.browser.navigate_and_extract(url, instruction)
+        
+        return {
+            "success": True,
+            "extracted_data": result,
+            "url": url
+        }
+    
+    async def _simple_extract(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Use simple scraper for lightweight extraction."""
+        url = config.get("url")
+        prompt = config.get("prompt")
+        
+        if not url or not prompt:
+            raise ValueError("URL and prompt required for simple extraction")
+            
+        # Use the lightweight scraper
+        scraper = AISimpleScraper(self.llm)
+        result = await scraper.extract(url, prompt)
+        
+        return {
+            "success": True,
+            "extracted_data": result,
+            "url": url
+        }
+    
+    def post(self, shared: Dict[str, Any], action_config: Dict[str, Any], 
+             exec_res: Dict[str, Any]) -> str:
+        """Update shared store with browser action results."""
+        # Store results in shared
+        shared["browser_action_result"] = exec_res
+        
+        # Store specific results based on action type
+        if exec_res.get("success"):
+            action_type = action_config.get("action_type")
+            
+            if action_type == "extract_jobs" and "job_listings" in exec_res:
+                shared["extracted_job_listings"] = exec_res["job_listings"]
+            elif action_type == "fill_application":
+                shared["application_status"] = exec_res["status"]
+            elif action_type in ["navigate_and_extract", "simple_extract"]:
+                shared["extracted_data"] = exec_res["extracted_data"]
+        
+        # Return appropriate action
+        if exec_res.get("success"):
+            return "browser_success"
+        else:
+            return "browser_failed"
+    
+    def __del__(self):
+        """Cleanup browser on node destruction."""
+        if hasattr(self, 'browser') and self.browser:
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(self._cleanup_browser())
+                else:
+                    asyncio.run(self._cleanup_browser())
+            except:
+                pass
