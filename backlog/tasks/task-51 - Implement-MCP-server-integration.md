@@ -14,6 +14,7 @@ dependencies: []
 Create a Model Context Protocol (MCP) server to expose the Career Application Agent as a sub-agent that can be used by other AI assistants like Claude Code. MCP is an open standard by Anthropic that standardizes how applications provide context to LLMs, essentially acting as a "USB-C port for AI applications". This would allow the career agent's capabilities to be seamlessly integrated into coding workflows, IDEs, and other AI-powered tools.
 
 **Critical**: The implementation must support two modes of operation:
+
 1. **MCP Sampling Mode**: When running as an MCP server, leverage the `sampling` protocol to request that the client performs LLM tasks. This allows the server to delegate all LLM operations to the client without requiring its own API keys.
 2. **Standalone Mode**: When running independently (not as MCP server), use traditional token-based authentication with LLM providers. This maintains backward compatibility and allows direct CLI usage.
 
@@ -239,6 +240,7 @@ Once implemented, users could:
 ### Dual-Mode Benefits
 
 **MCP Sampling Mode Benefits**:
+
 - **No API Keys Required**: Server doesn't need its own LLM configuration
 - **Client Model Selection**: Uses whatever model the client is configured with
 - **Cost Efficiency**: Billing handled by the client application
@@ -247,6 +249,7 @@ Once implemented, users could:
 - **Flexibility**: Works with any LLM provider the client supports
 
 **Standalone Mode Benefits**:
+
 - **Independence**: Can run without MCP client infrastructure
 - **Direct Control**: Full control over model selection and parameters
 - **Backward Compatibility**: Existing CLI workflows continue to work
