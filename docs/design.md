@@ -153,3 +153,143 @@ Users can restart the workflow from any major flow by providing:
 - User-editable outputs in `outputs/` directory
 - Shared store validation enforced through `utils/shared_store_validator.py`
 - Complete data contract defined in `docs/shared_store_data_contract.md`
+
+## System Architecture
+
+### Core Components
+
+#### 1. PocketFlow Base Classes (pocketflow.py)
+- **Node**: Base class for all processing units
+  - `prep()`: Read from shared store
+  - `exec()`: Execute computation (often LLM calls)
+  - `post()`: Write results and return action
+- **BatchNode**: Parallel processing for collections
+- **Flow**: Orchestrates nodes in directed graphs
+- **BatchFlow**: Parallel flow execution
+
+#### 2. Application Nodes (nodes.py)
+Organized into functional categories:
+
+**Document Processing**
+- ScanDocumentsNode: Document discovery
+- ExtractExperienceNode: Work experience extraction
+- BuildDatabaseNode: Career database construction
+
+**Requirements Analysis**
+- ExtractRequirementsNode: Job parsing
+- RequirementMappingNode: Experience mapping
+- StrengthAssessmentNode: Strength evaluation
+- GapAnalysisNode: Gap identification
+
+**Company Research**
+- DecideActionNode: Research planning
+- WebSearchNode: Search execution
+- ReadContentNode: Content extraction
+- SynthesizeInfoNode: Information synthesis
+
+**Strategy & Generation**
+- SuitabilityScoringNode: Fit calculation
+- ExperiencePrioritizationNode: Experience ranking
+- NarrativeStrategyNode: Story development
+- CVGenerationNode: CV creation
+- CoverLetterNode: Cover letter writing
+
+**Workflow Management**
+- SaveCheckpointNode: State persistence
+- LoadCheckpointNode: State recovery
+
+#### 3. Flow Orchestration (flow.py)
+- ExperienceDatabaseFlow: Document → Database pipeline
+- RequirementExtractionFlow: Job → Requirements
+- AnalysisFlow: Requirements → Analysis (with checkpoint)
+- CompanyResearchAgent: Autonomous research loop
+- AssessmentFlow: Scoring pipeline
+- NarrativeFlow: Strategy development (with checkpoint)
+- GenerationFlow: Document generation
+
+#### 4. Utilities (utils/)
+- **llm_wrapper.py**: LLM abstraction layer
+- **career_database_parser.py**: Database I/O
+- **document_scanner.py**: File discovery
+- **shared_store_validator.py**: Data validation
+- **web_tools.py**: Web scraping utilities
+
+### Data Architecture
+
+#### Career Database Schema
+Defined in `docs/career_database_schema.md`:
+```yaml
+personal_info:
+  name: string
+  email: string
+  phone: string (optional)
+  location: string (optional)
+  
+work_experience:
+  - company: string
+    title: string
+    start_date: YYYY-MM
+    end_date: YYYY-MM or null
+    responsibilities: [string]
+    achievements:
+      - description: string
+        metrics: [string]
+    technologies: [string]
+    projects:
+      - name: string
+        role: string
+        description: string
+        technologies: [string]
+        outcomes: [string]
+```
+
+#### Job Requirements Schema
+Defined in `docs/job_requirements_schema.md`:
+```yaml
+job_info:
+  title: string
+  company: string
+  location: string
+  
+requirements:
+  required:
+    technical_skills: [string]
+    experience_years: number
+    qualifications: [string]
+  preferred:
+    technical_skills: [string]
+    qualifications: [string]
+```
+
+### Error Handling Strategy
+
+1. **Node-Level Retry**: Built into Node base class
+2. **Graceful Degradation**: Continue with partial data
+3. **User Notification**: Clear error messages
+4. **Checkpoint Recovery**: Resume from last good state
+5. **Validation Errors**: Detailed field-level feedback
+
+### Security Considerations
+
+1. **API Key Management**: Environment variables
+2. **File Access**: Sandboxed to project directories
+3. **Web Scraping**: Rate limiting and robots.txt compliance
+4. **Data Privacy**: No PII in logs or checkpoints
+5. **Input Validation**: Schema validation for all inputs
+
+### Performance Optimization
+
+1. **Parallel Processing**: BatchNode for document analysis
+2. **Caching**: LLM response caching in development
+3. **Lazy Loading**: Documents processed on-demand
+4. **Incremental Updates**: Merge with existing database
+5. **Checkpoint Efficiency**: Only save changed data
+
+### Testing Strategy
+
+Documented in `docs/testing_strategy.md`:
+1. **Unit Tests**: Individual node validation
+2. **Integration Tests**: Flow execution
+3. **Mock LLM**: Deterministic testing
+4. **Schema Validation**: Input/output contracts
+5. **Documentation Tests**: Code examples validation

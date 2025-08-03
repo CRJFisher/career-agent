@@ -1,7 +1,7 @@
 ---
 id: task-35
 title: Create system documentation
-status: To Do
+status: completed
 assignee: []
 created_date: '2025-07-31'
 updated_date: '2025-07-31'
