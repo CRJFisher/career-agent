@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "career-agent": {
+      "command": "python",
+      "args": [
+        "/path/to/career-agent/mcp_server.py"
+      ],
+      "env": {
+        "PYTHONPATH": "/path/to/career-agent"
+      }
+    }
+  }
+}

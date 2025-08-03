@@ -106,6 +106,7 @@ This is an advanced feature that would significantly enhance the research agent'
 ## Evaluation Criteria
 
 ### Must-Have Requirements
+
 1. **Dynamic Content Handling**: JavaScript-rendered pages
 2. **Form Interaction**: Fill and submit forms programmatically
 3. **Navigation**: Click links, buttons, navigate between pages
@@ -114,6 +115,7 @@ This is an advanced feature that would significantly enhance the research agent'
 6. **Python Support**: Native Python or good Python bindings
 
 ### Nice-to-Have Features
+
 1. **Stealth Mode**: Avoid bot detection
 2. **Session Management**: Handle cookies and authentication
 3. **Parallel Execution**: Multiple browser instances
@@ -122,6 +124,7 @@ This is an advanced feature that would significantly enhance the research agent'
 6. **Automatic Retry**: Handle transient failures
 
 ### Integration Requirements
+
 1. **PocketFlow Compatible**: Easy to wrap in Node interface
 2. **Async Support**: Work with our async infrastructure
 3. **Error Handling**: Graceful failure modes
@@ -172,6 +175,7 @@ Create a research document (`docs/ai_browser_tools_evaluation.md`) with:
 ## Decision Criteria
 
 The research-first approach ensures we:
+
 - Don't reinvent the wheel
 - Choose the most maintainable solution
 - Leverage existing community efforts
@@ -185,6 +189,7 @@ The research-first approach ensures we:
 Created comprehensive research document: `docs/ai_browser_tools_evaluation.md`
 
 Key findings:
+
 - Evaluated 6 major AI browser tools
 - LangChain Browser Tools selected as the best fit
 - Provides good balance of features, flexibility, and maintenance

@@ -11,6 +11,7 @@ This document evaluates various AI-powered web scraping and browser automation t
 ## Requirements Overview
 
 ### Must-Have Features
+
 - ✅ Dynamic JavaScript content handling
 - ✅ Form interaction (fill and submit)
 - ✅ Navigation (click, scroll, navigate)
@@ -19,6 +20,7 @@ This document evaluates various AI-powered web scraping and browser automation t
 - ✅ Python support
 
 ### Nice-to-Have Features
+
 - Stealth/anti-detection capabilities
 - Session management
 - Parallel execution
@@ -33,23 +35,27 @@ This document evaluates various AI-powered web scraping and browser automation t
 **Overview**: LangChain provides browser interaction tools as part of its agent toolkit.
 
 **Key Features**:
+
 - PlayWrightBrowserToolkit for browser automation
 - WebBaseLoader for content extraction
 - Integration with LangChain agents
 - Natural language action descriptions
 
 **Pros**:
+
 - Native LangChain integration
 - Good documentation
 - Active community
 - Supports our LLM wrapper pattern
 
 **Cons**:
+
 - Requires Playwright installation
 - Limited to LangChain's abstraction
 - May need customization for complex scenarios
 
 **Code Example**:
+
 ```python
 from langchain.tools.playwright import PlayWrightBrowserToolkit
 from langchain.agents import AgentType, initialize_agent
@@ -73,23 +79,27 @@ agent = initialize_agent(
 **Overview**: Open-source library using LLMs to scrape websites with natural language queries.
 
 **Key Features**:
+
 - Natural language web scraping
 - Multiple LLM support (OpenAI, Anthropic, local models)
 - Automatic schema generation
 - Handles dynamic content with Playwright
 
 **Pros**:
+
 - Very intuitive API
 - Good for structured data extraction
 - Active development
 - MIT licensed
 
 **Cons**:
+
 - Focused on extraction, not interaction
 - Limited form filling capabilities
 - Newer project (less battle-tested)
 
 **Code Example**:
+
 ```python
 from scrapegraphai import Scraper
 
@@ -111,24 +121,28 @@ result = scraper.scrape(
 **Overview**: API service that converts websites to LLM-ready markdown/structured data.
 
 **Key Features**:
+
 - Handles JavaScript rendering
 - Clean markdown output
 - API-based (no local browser needed)
 - Batch crawling support
 
 **Pros**:
+
 - No browser management
 - Great for content extraction
 - Handles many edge cases
 - Good documentation
 
 **Cons**:
+
 - API service (costs, latency)
 - No form interaction
 - Limited to extraction
 - Less control over browser behavior
 
 **Code Example**:
+
 ```python
 from firecrawl import FirecrawlApp
 
@@ -154,23 +168,27 @@ crawl_data = app.crawl_url(
 **Overview**: Custom integration using Playwright for browser control and GPT for decision making.
 
 **Key Features**:
+
 - Full browser control
 - Can build custom AI behaviors
 - Complete flexibility
 - Existing async support
 
 **Pros**:
+
 - Maximum control
 - Battle-tested browser automation
 - Great Python support
 - Can implement exact requirements
 
 **Cons**:
+
 - Requires custom AI integration
 - More development effort
 - Need to handle edge cases
 
 **Code Example**:
+
 ```python
 from playwright.async_api import async_playwright
 import asyncio
@@ -197,18 +215,21 @@ async def ai_browser_action(page, instruction):
 **Overview**: Headless browser API service with built-in automation features.
 
 **Key Features**:
+
 - Managed browser infrastructure
 - REST API
 - Stealth mode
 - Session management
 
 **Pros**:
+
 - No browser management
 - Scalable
 - Good for production
 - Anti-detection features
 
 **Cons**:
+
 - Paid service
 - API latency
 - Less flexibility
@@ -223,18 +244,21 @@ async def ai_browser_action(page, instruction):
 **Overview**: Web scraping and browser automation library with advanced features.
 
 **Key Features**:
+
 - Request queuing and retries
 - Session pool
 - Proxy rotation
 - Playwright integration
 
 **Pros**:
+
 - Production-ready
 - Handles many edge cases
 - Good async support
 - Open source
 
 **Cons**:
+
 - More complex API
 - No built-in AI
 - Focused on crawling
@@ -339,11 +363,13 @@ class AISimpleScraper:
 ## Risk Assessment
 
 ### Risks
+
 1. **LangChain dependency**: Adds another major dependency
 2. **Breaking changes**: LangChain evolves rapidly
 3. **Complexity**: Browser automation is inherently complex
 
 ### Mitigations
+
 1. **Pin versions**: Lock LangChain and Playwright versions
 2. **Abstraction layer**: Wrap in our own interface
 3. **Comprehensive testing**: Mock browser interactions
@@ -354,13 +380,14 @@ class AISimpleScraper:
 - **Development time**: 2-3 days for integration
 - **Maintenance**: Moderate (LangChain updates)
 - **Runtime costs**: Minimal (local browser)
-- **Alternative costs**: 
+- **Alternative costs**:
   - Firecrawl: ~$50-200/month
   - Browserless: ~$100-500/month
 
 ## Conclusion
 
 The hybrid approach using LangChain Browser Tools provides the best balance of:
+
 - Quick implementation
 - Flexibility for future needs
 - Cost effectiveness
