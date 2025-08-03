@@ -1,15 +1,15 @@
 ---
 id: task-43
 title: Implement LoadCheckpointNode
-status: pending
+status: completed
+assignee:
+  - unassigned
+created_date: ''
+updated_date: '2025-08-03'
+labels: []
+dependencies:
+  - task-42
 priority: medium
-assignee: unassigned
-created: 2024-01-01
-updated: 2025-08-02
-tags: [node, checkpoint, persistence, recovery, pocketflow]
-dependencies: [task-42]
-estimated_hours: 4
-actual_hours: 0
 ---
 
 ## Description

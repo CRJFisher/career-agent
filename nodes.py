@@ -913,60 +913,372 @@ class LoadCheckpointNode(Node):
     """
     Loads checkpoint and merges user edits to resume workflow.
     
-    Reads the checkpoint file and user-edited output file,
-    merging changes back into the shared store.
+    Reads checkpoint files and user-edited output files, validating
+    integrity and merging changes back into the shared store. Supports
+    automatic checkpoint discovery and modification detection.
     """
+    
+    def __init__(self, checkpoint_name: str = None, auto_detect: bool = True, 
+                 max_retries: int = 3, wait: float = 1.0):
+        """
+        Initialize LoadCheckpointNode.
+        
+        Args:
+            checkpoint_name: Specific checkpoint to load (optional)
+            auto_detect: Whether to auto-detect latest checkpoint
+            max_retries: Maximum retry attempts for file operations
+            wait: Wait time between retries
+        """
+        super().__init__(max_retries, wait)
+        self.checkpoint_name = checkpoint_name
+        self.auto_detect = auto_detect
+        self.checkpoint_dir = Path("checkpoints")
+        self.output_dir = Path("outputs")
     
     def prep(self, shared: Dict[str, Any]) -> Dict[str, Any]:
         """Determine which checkpoint to load."""
-        # Could get from params or auto-detect latest
-        flow_name = self.params.get("flow_name", "workflow")
-        return {"flow_name": flow_name}
-    
-    def exec(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Load checkpoint and user edits."""
-        import yaml
-        from pathlib import Path
+        from datetime import datetime
         
-        # Find latest checkpoint for this flow
-        checkpoint_dir = Path("checkpoints")
-        checkpoints = list(checkpoint_dir.glob(f"{config['flow_name']}_*.yaml"))
+        # Get flow name from params or shared
+        flow_name = self.params.get("flow_name", shared.get("flow_name", "workflow"))
+        checkpoint_name = self.params.get("checkpoint_name", self.checkpoint_name)
         
-        if not checkpoints:
-            raise FileNotFoundError(f"No checkpoints found for {config['flow_name']}")
-        
-        latest = max(checkpoints, key=lambda p: p.stat().st_mtime)
-        
-        # Load checkpoint
-        with open(latest, 'r') as f:
-            checkpoint_data = yaml.safe_load(f)
-        
-        # Load user edits
-        output_file = f"outputs/{config['flow_name']}_output.yaml"
-        if Path(output_file).exists():
-            with open(output_file, 'r') as f:
-                user_data = yaml.safe_load(f)
+        # Find checkpoint file
+        if checkpoint_name:
+            checkpoint_path = self._find_specific_checkpoint(checkpoint_name, flow_name)
+        elif self.auto_detect:
+            checkpoint_path = self._find_latest_checkpoint(flow_name)
         else:
-            user_data = {}
+            raise ValueError("No checkpoint specified and auto_detect is False")
         
         return {
-            "checkpoint": checkpoint_data,
-            "user_edits": user_data,
-            "checkpoint_file": str(latest)
+            "checkpoint_path": checkpoint_path,
+            "flow_name": flow_name,
+            "load_timestamp": datetime.now()
         }
     
-    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: Dict) -> Optional[str]:
-        """Merge checkpoint and user edits into shared store."""
-        # Start with checkpoint data
-        shared.update(exec_res["checkpoint"])
+    def exec(self, prep_res: Dict[str, Any]) -> Dict[str, Any]:
+        """Load checkpoint and merge with user edits."""
+        import yaml
+        from datetime import datetime
         
-        # Apply user edits (they take precedence)
-        for key, value in exec_res["user_edits"].items():
-            if not key.startswith("#"):  # Skip comment fields
-                shared[key] = value
-                logger.info(f"Applied user edit to field: {key}")
+        checkpoint_path = prep_res["checkpoint_path"]
         
-        return "default"
+        # Load checkpoint data
+        try:
+            with open(checkpoint_path, 'r', encoding='utf-8') as f:
+                checkpoint_data = yaml.safe_load(f)
+        except Exception as e:
+            raise RuntimeError(f"Failed to load checkpoint {checkpoint_path}: {e}")
+        
+        # Validate checkpoint
+        self._validate_checkpoint(checkpoint_data)
+        
+        # Extract metadata and shared state
+        metadata = checkpoint_data.get("metadata", {})
+        shared_state = checkpoint_data.get("shared_state", {})
+        recovery_info = checkpoint_data.get("recovery_info", {})
+        
+        # Find and load user edits
+        user_edits = self._load_user_edits(shared_state, metadata)
+        
+        # Merge checkpoint and user edits
+        merged_state = self._merge_checkpoint_and_edits(shared_state, user_edits)
+        
+        # Detect modifications
+        modifications = self._detect_modifications(shared_state, merged_state)
+        
+        return {
+            "checkpoint_path": str(checkpoint_path),
+            "metadata": metadata,
+            "shared_state": shared_state,
+            "merged_state": merged_state,
+            "user_edits": user_edits,
+            "modifications": modifications,
+            "recovery_info": recovery_info
+        }
+    
+    def post(self, shared: Dict[str, Any], prep_res: Dict, exec_res: Dict) -> str:
+        """Update shared store with loaded state."""
+        # Clear existing state if requested
+        if self.params.get("clear_existing", False):
+            shared.clear()
+        
+        # Apply merged state to shared store
+        shared.update(exec_res["merged_state"])
+        
+        # Add checkpoint resumption metadata
+        shared["resumed_from_checkpoint"] = {
+            "checkpoint_name": exec_res["metadata"].get("checkpoint_name"),
+            "checkpoint_path": exec_res["checkpoint_path"],
+            "timestamp": exec_res["metadata"].get("timestamp"),
+            "modifications_count": len(exec_res["modifications"]),
+            "modifications": exec_res["modifications"]
+        }
+        
+        # Log resumption details
+        logger.info("=" * 60)
+        logger.info(f"✓ Resumed from checkpoint: {Path(exec_res['checkpoint_path']).name}")
+        logger.info(f"  Flow: {exec_res['metadata'].get('flow_name', 'unknown')}")
+        logger.info(f"  Created: {exec_res['metadata'].get('timestamp', 'unknown')}")
+        
+        if exec_res["modifications"]:
+            logger.info(f"  User modifications: {len(exec_res['modifications'])}")
+            for mod in exec_res["modifications"][:5]:  # Show first 5
+                logger.info(f"    - {mod['path']}: {mod.get('action', 'modified')}")
+            if len(exec_res["modifications"]) > 5:
+                logger.info(f"    ... and {len(exec_res['modifications']) - 5} more")
+        
+        logger.info("=" * 60)
+        
+        # Determine next action from recovery info or params
+        next_action = self.params.get("action", 
+                                    exec_res["recovery_info"].get("next_action", "continue"))
+        return next_action
+    
+    def _find_latest_checkpoint(self, flow_name: str) -> Path:
+        """Find the most recent checkpoint for a flow."""
+        # Check flow-specific directory
+        flow_checkpoint_dir = self.checkpoint_dir / flow_name
+        
+        # First check for latest symlink
+        if flow_checkpoint_dir.exists():
+            latest_links = list(flow_checkpoint_dir.glob("*_latest.yaml"))
+            if latest_links:
+                # Follow symlink to actual file
+                for link in latest_links:
+                    if link.exists():
+                        return link.resolve()
+        
+        # Search for checkpoint files
+        patterns = [
+            f"{flow_name}/*_*.yaml",  # Flow-specific directory
+            f"{flow_name}_*.yaml"      # Root checkpoint directory
+        ]
+        
+        all_checkpoints = []
+        for pattern in patterns:
+            checkpoints = list(self.checkpoint_dir.glob(pattern))
+            all_checkpoints.extend(checkpoints)
+        
+        # Filter out symlinks and backups
+        valid_checkpoints = [
+            cp for cp in all_checkpoints 
+            if not cp.is_symlink() and not cp.name.endswith('.bak')
+        ]
+        
+        if not valid_checkpoints:
+            raise FileNotFoundError(f"No checkpoints found for flow: {flow_name}")
+        
+        # Return most recent by modification time
+        return max(valid_checkpoints, key=lambda p: p.stat().st_mtime)
+    
+    def _find_specific_checkpoint(self, checkpoint_name: str, flow_name: str) -> Path:
+        """Find a specific checkpoint by name."""
+        # Try exact paths
+        exact_paths = [
+            self.checkpoint_dir / flow_name / f"{checkpoint_name}.yaml",
+            self.checkpoint_dir / flow_name / f"{checkpoint_name}_*.yaml",
+            self.checkpoint_dir / f"{checkpoint_name}.yaml",
+            self.checkpoint_dir / f"{flow_name}_{checkpoint_name}.yaml"
+        ]
+        
+        for path_pattern in exact_paths:
+            if '*' in str(path_pattern):
+                matches = list(path_pattern.parent.glob(path_pattern.name))
+                if matches:
+                    return max(matches, key=lambda p: p.stat().st_mtime)
+            elif path_pattern.exists():
+                return path_pattern
+        
+        # Try pattern matching
+        patterns = [
+            f"**/*{checkpoint_name}*.yaml",
+            f"{flow_name}/*{checkpoint_name}*.yaml"
+        ]
+        
+        for pattern in patterns:
+            matches = list(self.checkpoint_dir.glob(pattern))
+            valid_matches = [
+                m for m in matches 
+                if not m.is_symlink() and not m.name.endswith('.bak')
+            ]
+            if valid_matches:
+                if len(valid_matches) > 1:
+                    logger.warning(f"Multiple checkpoints match '{checkpoint_name}', using most recent")
+                return max(valid_matches, key=lambda p: p.stat().st_mtime)
+        
+        raise FileNotFoundError(f"Checkpoint not found: {checkpoint_name}")
+    
+    def _validate_checkpoint(self, checkpoint_data: Dict[str, Any]) -> None:
+        """Validate checkpoint integrity and compatibility."""
+        from datetime import datetime
+        
+        # Check required top-level fields
+        required_fields = ["metadata", "shared_state"]
+        for field in required_fields:
+            if field not in checkpoint_data:
+                raise ValueError(f"Invalid checkpoint: missing '{field}' field")
+        
+        metadata = checkpoint_data["metadata"]
+        
+        # Check format version compatibility
+        version = metadata.get("format_version", "0.0")
+        if not self._is_version_compatible(version):
+            raise ValueError(f"Incompatible checkpoint version: {version} (expected 1.x)")
+        
+        # Validate metadata fields
+        required_metadata = ["checkpoint_name", "flow_name", "timestamp"]
+        for field in required_metadata:
+            if field not in metadata:
+                logger.warning(f"Checkpoint metadata missing '{field}' field")
+        
+        # Check age of checkpoint
+        timestamp_str = metadata.get("timestamp")
+        if timestamp_str:
+            try:
+                timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                age = datetime.now() - timestamp
+                if age.days > 30:
+                    logger.warning(f"Checkpoint is {age.days} days old")
+                elif age.days > 7:
+                    logger.info(f"Checkpoint is {age.days} days old")
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Invalid checkpoint timestamp: {e}")
+    
+    def _is_version_compatible(self, version: str) -> bool:
+        """Check if checkpoint version is compatible."""
+        try:
+            major, minor = map(int, version.split('.'))
+            # Compatible with version 1.x
+            return major == 1
+        except:
+            return False
+    
+    def _load_user_edits(self, shared_state: Dict[str, Any], 
+                        metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Load user-edited files associated with checkpoint."""
+        user_edits = {}
+        
+        # Get output file info from checkpoint
+        last_checkpoint = shared_state.get("last_checkpoint", {})
+        output_file = last_checkpoint.get("output_file")
+        
+        if output_file and Path(output_file).exists():
+            try:
+                with open(output_file, 'r', encoding='utf-8') as f:
+                    content = yaml.safe_load(f)
+                
+                # Remove comment fields
+                if isinstance(content, dict):
+                    user_edits = {
+                        k: v for k, v in content.items() 
+                        if not k.startswith('#')
+                    }
+                    logger.info(f"Loaded user edits from: {output_file}")
+            except Exception as e:
+                logger.warning(f"Could not load user edits from {output_file}: {e}")
+        
+        # Also check standard output location
+        flow_name = metadata.get("flow_name", "workflow")
+        standard_output = self.output_dir / f"{flow_name}_output.yaml"
+        
+        if standard_output.exists() and str(standard_output) != output_file:
+            try:
+                with open(standard_output, 'r', encoding='utf-8') as f:
+                    content = yaml.safe_load(f)
+                
+                if isinstance(content, dict):
+                    additional_edits = {
+                        k: v for k, v in content.items() 
+                        if not k.startswith('#')
+                    }
+                    # Merge, with user_edits taking precedence
+                    additional_edits.update(user_edits)
+                    user_edits = additional_edits
+                    logger.info(f"Also loaded edits from: {standard_output}")
+            except Exception as e:
+                logger.warning(f"Could not load additional edits: {e}")
+        
+        return user_edits
+    
+    def _merge_checkpoint_and_edits(self, checkpoint_state: Dict[str, Any], 
+                                   user_edits: Dict[str, Any]) -> Dict[str, Any]:
+        """Merge checkpoint data with user edits."""
+        # Deep copy checkpoint state
+        import copy
+        merged = copy.deepcopy(checkpoint_state)
+        
+        # Apply user edits
+        for key, value in user_edits.items():
+            if key in merged:
+                logger.info(f"Replacing '{key}' with user-edited version")
+            else:
+                logger.info(f"Adding new field '{key}' from user edits")
+            merged[key] = value
+        
+        return merged
+    
+    def _detect_modifications(self, original: Dict[str, Any], 
+                            modified: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Detect what the user changed."""
+        modifications = []
+        
+        def deep_compare(path: str, orig: Any, mod: Any) -> None:
+            """Recursively compare data structures."""
+            if type(orig) != type(mod):
+                modifications.append({
+                    "path": path,
+                    "action": "type_changed",
+                    "original_type": type(orig).__name__,
+                    "modified_type": type(mod).__name__
+                })
+                return
+            
+            if isinstance(orig, dict) and isinstance(mod, dict):
+                all_keys = set(orig.keys()) | set(mod.keys())
+                for key in all_keys:
+                    new_path = f"{path}.{key}" if path else key
+                    
+                    if key not in orig:
+                        modifications.append({
+                            "path": new_path,
+                            "action": "added",
+                            "value": mod[key]
+                        })
+                    elif key not in mod:
+                        modifications.append({
+                            "path": new_path,
+                            "action": "deleted",
+                            "original": orig[key]
+                        })
+                    else:
+                        deep_compare(new_path, orig[key], mod[key])
+            
+            elif isinstance(orig, list) and isinstance(mod, list):
+                if len(orig) != len(mod):
+                    modifications.append({
+                        "path": path,
+                        "action": "list_size_changed",
+                        "original_size": len(orig),
+                        "modified_size": len(mod)
+                    })
+                # Compare list items up to min length
+                for i in range(min(len(orig), len(mod))):
+                    deep_compare(f"{path}[{i}]", orig[i], mod[i])
+            
+            elif orig != mod:
+                modifications.append({
+                    "path": path,
+                    "action": "modified",
+                    "original": orig,
+                    "modified": mod
+                })
+        
+        # Start comparison
+        deep_compare("", original, modified)
+        
+        return modifications
 
 
 class DecideActionNode(Node):
