@@ -28,7 +28,7 @@ from flow import (
     NarrativeFlow,
     GenerationFlow
 )
-from utils.database_parser import load_career_database
+from utils.database_parser_v2 import load_career_database
 
 # Set up logging
 logging.basicConfig(
@@ -358,6 +358,12 @@ Examples:
   # Build career database from documents
   python main.py --build-db
   
+  # Discover job opportunities
+  python main.py --discover-jobs --location "San Francisco, CA"
+  
+  # Discover with custom URLs
+  python main.py --discover-jobs --job-urls "https://linkedin.com/jobs/search/?keywords=python+developer"
+  
   # Process a job application
   python main.py --job-file job.txt --job-title "Senior Engineer" --company "TechCorp"
   
@@ -430,10 +436,101 @@ Examples:
         help="Run in demo mode with sample data"
     )
     
+    # Job discovery
+    parser.add_argument(
+        "--discover-jobs",
+        action="store_true",
+        help="Discover job opportunities from job boards"
+    )
+    parser.add_argument(
+        "--job-urls",
+        type=str,
+        nargs="+",
+        help="Root URLs to start job discovery (e.g., LinkedIn search URLs)"
+    )
+    parser.add_argument(
+        "--location",
+        type=str,
+        help="Preferred job location for discovery"
+    )
+    parser.add_argument(
+        "--remote-ok",
+        action="store_true",
+        default=True,
+        help="Include remote positions in job discovery"
+    )
+    parser.add_argument(
+        "--min-relevance",
+        type=float,
+        default=0.6,
+        help="Minimum relevance score for job filtering (0.0-1.0)"
+    )
+    parser.add_argument(
+        "--max-pages",
+        type=int,
+        default=50,
+        help="Maximum pages to crawl per job board"
+    )
+    
+    # Database backend management
+    parser.add_argument(
+        "--db-backend",
+        type=str,
+        choices=["yaml", "sqlite"],
+        help="Get or set database backend type"
+    )
+    parser.add_argument(
+        "--migrate-db",
+        action="store_true",
+        help="Migrate database to new backend specified by --db-backend"
+    )
+    parser.add_argument(
+        "--db-info",
+        action="store_true",
+        help="Show current database backend configuration"
+    )
+    
     args = parser.parse_args()
     
     # Load configuration
     config = load_config(args.config) if Path(args.config).exists() else {}
+    
+    # Handle database backend management commands
+    if args.db_info:
+        from config import get_database_config
+        config_obj = get_database_config()
+        print(f"Current database backend: {config_obj.backend_type}")
+        paths = config_obj.get_all_paths()
+        print(f"YAML path: {paths['yaml']}")
+        print(f"SQLite path: {paths['sqlite']}")
+        return
+    
+    if args.db_backend and not args.migrate_db:
+        # Just show current backend
+        from config import get_backend_type
+        print(f"Current database backend: {get_backend_type()}")
+        return
+    
+    if args.migrate_db:
+        if not args.db_backend:
+            parser.error("--db-backend is required when using --migrate-db")
+        
+        from config import get_database_config
+        config_obj = get_database_config()
+        current_backend = config_obj.backend_type
+        
+        if current_backend == args.db_backend:
+            print(f"Already using {args.db_backend} backend")
+            return
+        
+        print(f"Migrating from {current_backend} to {args.db_backend}...")
+        success = config_obj.switch_backend(args.db_backend, migrate_data=True)
+        
+        if success:
+            print(f"Successfully migrated to {args.db_backend} backend")
+        else:
+            print("Migration failed. Check logs for details.")
+            return
     
     # Build career database if requested
     if args.build_db:
@@ -513,6 +610,62 @@ Nice to have:
             company_name="TechCorp",
             skip_company_research=args.skip_research
         )
+        return
+    
+    # Job discovery mode
+    if args.discover_jobs:
+        from flow_job_discovery import run_job_discovery
+        
+        # Load career database
+        db_path = Path(args.career_db)
+        if not db_path.exists():
+            logger.error(f"Career database not found: {args.career_db}")
+            logger.error("Run with --build-db first or specify --career-db path")
+            return
+        
+        # Prepare search preferences
+        search_prefs = {
+            "location": args.location,
+            "remote_ok": args.remote_ok,
+            "min_salary": None  # Could add this as CLI arg
+        }
+        
+        # Prepare config
+        discovery_config = {
+            "max_pages_per_site": args.max_pages,
+            "min_relevance_score": args.min_relevance,
+            "max_crawl_depth": 3,
+            "extraction_batch_size": 5
+        }
+        
+        logger.info("Starting job discovery agent...")
+        logger.info(f"Career database: {db_path}")
+        logger.info(f"Location preference: {args.location or 'Any'}")
+        logger.info(f"Remote OK: {args.remote_ok}")
+        logger.info(f"Min relevance: {args.min_relevance}")
+        
+        try:
+            results = run_job_discovery(
+                career_database_path=str(db_path),
+                root_urls=args.job_urls,
+                search_preferences=search_prefs,
+                config=discovery_config
+            )
+            
+            if results["success"]:
+                logger.info(f"\n✅ Job discovery complete!")
+                logger.info(f"Found {results['jobs_found']} relevant jobs")
+                logger.info(f"Results saved to: {results['output_path']}")
+                print("\n" + "="*60)
+                print(results.get("summary_report", ""))
+            else:
+                logger.error("Job discovery failed. Check logs for details.")
+                
+        except Exception as e:
+            logger.error(f"Error during job discovery: {e}")
+            import traceback
+            traceback.print_exc()
+        
         return
     
     # Process job application

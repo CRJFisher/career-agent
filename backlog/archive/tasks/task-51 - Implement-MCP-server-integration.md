@@ -23,34 +23,34 @@ The system should automatically detect which mode to use based on the execution 
 
 ## Acceptance Criteria
 
-- [ ] Research and understand MCP specification, especially the sampling protocol
-- [ ] Install MCP Python SDK (`pip install mcp`)
-- [ ] Create `mcp_server.py` that exposes career agent as MCP server
-- [ ] **Implement dual-mode LLM operations**:
+- [x] Research and understand MCP specification, especially the sampling protocol
+- [x] Install MCP Python SDK (`pip install mcp`)
+- [x] Create `mcp_server.py` that exposes career agent as MCP server
+- [x] **Implement dual-mode LLM operations**:
   - Create adaptive wrapper that supports both MCP sampling and direct API calls
   - Detect execution context to choose appropriate mode
   - In MCP mode: Route LLM calls through sampling requests
   - In standalone mode: Use existing token-based authentication
   - Maintain conversation context across both modes
   - Handle sampling responses and API errors appropriately
-- [ ] Implement MCP tools for key capabilities:
+- [x] Implement MCP tools for key capabilities:
   - Build career database from documents
   - Analyze job requirements
   - Generate tailored CV/cover letter
   - Research company information
   - Get application recommendations
-- [ ] Add MCP resources for:
+- [x] Add MCP resources for:
   - Career database access
   - Generated documents
   - Analysis results
-- [ ] Create MCP prompts for common workflows
-- [ ] Implement proper error handling and logging
-- [ ] Add configuration for MCP server settings
-- [ ] Create integration tests for MCP endpoints
-- [ ] Write documentation for MCP usage and sampling
-- [ ] Create example claude_desktop_config.json
-- [ ] Test integration with Claude Desktop
-- [ ] Ensure human approval for sensitive sampling requests
+- [x] Create MCP prompts for common workflows
+- [x] Implement proper error handling and logging
+- [x] Add configuration for MCP server settings
+- [x] Create integration tests for MCP endpoints
+- [x] Write documentation for MCP usage and sampling
+- [x] Create example claude_desktop_config.json
+- [x] Test integration with Claude Desktop
+- [x] Ensure human approval for sensitive sampling requests
 
 ## Implementation Plan
 

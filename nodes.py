@@ -3602,7 +3602,7 @@ class BuildDatabaseNode(Node):
     
     def exec(self, prep_res: dict) -> dict:
         """Build and deduplicate career database."""
-        from utils.database_parser import validate_with_schema, save_career_database
+        from utils.database_parser import validate_with_schema
         from datetime import datetime
         import re
         
@@ -4041,8 +4041,8 @@ class BuildDatabaseNode(Node):
         ]
         
         # Get all technologies
-        from utils.database_parser import CareerDatabaseParser
-        parser = CareerDatabaseParser()
+        from utils.database_parser import CareerDatabaseParser as LegacyParser
+        parser = LegacyParser()
         parser.data = career_db
         summary["technologies_found"] = parser.get_all_technologies()
         
@@ -4175,10 +4175,11 @@ class BuildDatabaseNode(Node):
     
     def post(self, shared: dict, prep_res: dict, exec_res: dict) -> str:
         """Save database and store in shared."""
-        from utils.database_parser import save_career_database
+        from utils.database_parser_v2 import CareerDatabaseParser
         
-        # Save to file
-        save_career_database(exec_res["career_database"], prep_res["output_path"])
+        # Save to file using new backend
+        parser = CareerDatabaseParser()
+        parser.save(exec_res["career_database"], prep_res["output_path"])
         
         # Store in shared
         shared["career_database"] = exec_res["career_database"]

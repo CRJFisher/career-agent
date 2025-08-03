@@ -193,7 +193,7 @@ class ExperienceDatabaseFlow(Flow):
             existing_db_path = Path(shared["database_output_path"])
             if existing_db_path.exists():
                 try:
-                    from utils.database_parser import load_career_database
+                    from utils.database_parser_v2 import load_career_database
                     shared["existing_career_database"] = load_career_database(existing_db_path)
                     logger.info(f"Loaded existing database from {existing_db_path}")
                 except Exception as e:
