@@ -13,17 +13,24 @@ dependencies: []
 
 Create a Model Context Protocol (MCP) server to expose the Career Application Agent as a sub-agent that can be used by other AI assistants like Claude Code. MCP is an open standard by Anthropic that standardizes how applications provide context to LLMs, essentially acting as a "USB-C port for AI applications". This would allow the career agent's capabilities to be seamlessly integrated into coding workflows, IDEs, and other AI-powered tools.
 
-**Critical**: The implementation must leverage the MCP `sampling` protocol, which allows the server to request that the client performs LLM tasks. This is essential because the career agent relies heavily on LLM calls for analysis, content generation, and decision-making. Instead of requiring its own LLM configuration, the MCP server will delegate all LLM operations to the client through sampling requests.
+**Critical**: The implementation must support two modes of operation:
+1. **MCP Sampling Mode**: When running as an MCP server, leverage the `sampling` protocol to request that the client performs LLM tasks. This allows the server to delegate all LLM operations to the client without requiring its own API keys.
+2. **Standalone Mode**: When running independently (not as MCP server), use traditional token-based authentication with LLM providers. This maintains backward compatibility and allows direct CLI usage.
+
+The system should automatically detect which mode to use based on the execution context.
 
 ## Acceptance Criteria
 
 - [ ] Research and understand MCP specification, especially the sampling protocol
 - [ ] Install MCP Python SDK (`pip install mcp`)
 - [ ] Create `mcp_server.py` that exposes career agent as MCP server
-- [ ] **Implement MCP sampling for all LLM operations**:
-  - Replace direct LLM calls with sampling requests
-  - Maintain conversation context across sampling calls
-  - Handle sampling responses and errors appropriately
+- [ ] **Implement dual-mode LLM operations**:
+  - Create adaptive wrapper that supports both MCP sampling and direct API calls
+  - Detect execution context to choose appropriate mode
+  - In MCP mode: Route LLM calls through sampling requests
+  - In standalone mode: Use existing token-based authentication
+  - Maintain conversation context across both modes
+  - Handle sampling responses and API errors appropriately
 - [ ] Implement MCP tools for key capabilities:
   - Build career database from documents
   - Analyze job requirements
@@ -119,20 +126,24 @@ Create a Model Context Protocol (MCP) server to expose the Career Application Ag
 
 ## Technical Considerations
 
-### MCP Sampling Architecture
-- **All LLM operations must be routed through MCP sampling**
-- Create a custom LLMWrapper that delegates to MCP client
-- Replace all instances of `get_default_llm_wrapper()` with MCP-aware version
-- Maintain prompt templates and conversation context
-- Handle sampling request approvals and rejections
+### Dual-Mode Architecture
+
+- **MCP Mode**: Route all LLM operations through MCP sampling when running as server
+- **Standalone Mode**: Use existing LLMWrapper with API tokens when running directly
+- Create an adaptive LLMWrapper that switches between modes
+- Detect execution context to determine appropriate mode
+- Maintain prompt templates and conversation context in both modes
+- Handle sampling request approvals/rejections in MCP mode
 
 ### MCP Architecture
+
 - Server exposes tools, resources, and prompts
 - Clients (Claude Desktop, IDEs) connect via JSON-RPC
 - Stateless design for scalability
 - Proper authentication and authorization
 
 ### Integration Points
+
 - Create `MCPLLMWrapper` class that implements the same interface as `LLMWrapper`
 - Route all node LLM calls through sampling requests
 - Maintain backwards compatibility with existing nodes
@@ -140,30 +151,47 @@ Create a Model Context Protocol (MCP) server to expose the Career Application Ag
 - Progress callbacks for UI updates
 
 ### Implementation Strategy
+
 ```python
-class MCPLLMWrapper:
-    """LLM wrapper that delegates to MCP client via sampling"""
+class AdaptiveLLMWrapper:
+    """LLM wrapper that adapts between MCP sampling and direct API calls"""
     
-    def __init__(self, mcp_context):
-        self.mcp = mcp_context
+    def __init__(self, mcp_context=None):
+        self.mcp_context = mcp_context
+        self.standalone_wrapper = None
+        
+        if not mcp_context:
+            # Standalone mode - use traditional wrapper
+            from utils.llm_wrapper import get_default_llm_wrapper
+            self.standalone_wrapper = get_default_llm_wrapper()
     
     async def generate(self, prompt: str, **kwargs) -> str:
-        """Generate response using MCP sampling"""
-        sampling_request = SamplingRequest(
-            messages=[Message(role="user", content=prompt)],
-            model_preferences=kwargs
-        )
-        response = await self.mcp.sample(sampling_request)
-        return response.content
+        """Generate response using appropriate method"""
+        if self.mcp_context:
+            # MCP mode - use sampling
+            sampling_request = SamplingRequest(
+                messages=[Message(role="user", content=prompt)],
+                model_preferences=kwargs
+            )
+            response = await self.mcp_context.sample(sampling_request)
+            return response.content
+        else:
+            # Standalone mode - use direct API
+            return await self.standalone_wrapper.generate(prompt, **kwargs)
     
     async def generate_structured(self, prompt: str, schema: dict) -> dict:
-        """Generate structured response using MCP sampling"""
-        # Include schema in prompt for structured output
-        enhanced_prompt = f"{prompt}\n\nReturn response as JSON matching: {schema}"
-        return await self.generate(enhanced_prompt)
+        """Generate structured response using appropriate method"""
+        if self.mcp_context:
+            # Include schema in prompt for MCP sampling
+            enhanced_prompt = f"{prompt}\n\nReturn response as JSON matching: {schema}"
+            return await self.generate(enhanced_prompt)
+        else:
+            # Use standalone wrapper's structured generation
+            return await self.standalone_wrapper.generate_structured(prompt, schema)
 ```
 
 ### Security
+
 - Validate all inputs
 - Sanitize file paths
 - Implement permission controls
@@ -175,18 +203,21 @@ class MCPLLMWrapper:
 Once implemented, users could:
 
 1. In Claude Code:
+
    ```
    "I found this job posting [URL]. Can you help me apply?"
    -> Career agent analyzes job, generates tailored documents
    ```
 
 2. In Cursor IDE:
+
    ```
    "Update my career database with this project I just completed"
    -> Scans code, extracts project details, updates database
    ```
 
 3. In custom agent:
+
    ```python
    # Use career agent as sub-agent
    result = await mcp_client.call_tool(
@@ -205,14 +236,22 @@ Once implemented, users could:
 - **Standardization**: Follow industry-standard protocol
 - **Extensibility**: Easy to add new capabilities
 
-### Sampling Protocol Benefits
+### Dual-Mode Benefits
 
+**MCP Sampling Mode Benefits**:
 - **No API Keys Required**: Server doesn't need its own LLM configuration
 - **Client Model Selection**: Uses whatever model the client is configured with
 - **Cost Efficiency**: Billing handled by the client application
 - **Consistent Experience**: Same model behavior as the host application
-- **Security**: No need to manage or secure API credentials
+- **Security**: No need to manage or secure API credentials in MCP mode
 - **Flexibility**: Works with any LLM provider the client supports
+
+**Standalone Mode Benefits**:
+- **Independence**: Can run without MCP client infrastructure
+- **Direct Control**: Full control over model selection and parameters
+- **Backward Compatibility**: Existing CLI workflows continue to work
+- **Testing**: Easier to test and debug with direct API access
+- **Deployment Flexibility**: Can be deployed as traditional service
 
 ## References
 
